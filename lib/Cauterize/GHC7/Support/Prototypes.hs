@@ -1,7 +1,10 @@
-module Cauterize.GHC7.Support.Prototypes where
+module Cauterize.GHC7.Support.Prototypes
+  ( CautType(..)
+  ) where
 
--- class CautType a where
---   encode :: a -> Serialize (Either [Trace]) B.ByteString
---   decode :: B.ByteString -> Deserialize (Either [Trace]) a
---   typeName :: a -> T.Text
---   typeHash :: a -> TypeHash
+import qualified Data.Text as T
+
+class CautType a where
+  cautName :: a -> T.Text
+  -- cautHash :: a -> Hash
+  -- cautSize :: a -> (MinSize, MaxSize)

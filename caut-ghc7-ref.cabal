@@ -41,4 +41,4 @@ library
   exposed-modules:     Cauterize.GHC7.Support.BuiltIn,
                        Cauterize.GHC7.Support.Cauterize,
                        Cauterize.GHC7.Support.Prototypes,
-                       Cauterize.GHC7.Support.Types
+                       Cauterize.GHC7.Support.Result

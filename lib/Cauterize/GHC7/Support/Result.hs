@@ -1,10 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Cauterize.GHC7.Support.Types
+module Cauterize.GHC7.Support.Result
   ( Trace(..)
   , CautResult(..)
   , CautError(..)
-
-  , CautType(..)
 
   , failWithTrace
   , withTrace
@@ -40,6 +38,3 @@ newtype CautResult a =
   CautResult {
     unCautResult :: ReaderT [Trace] (Either CautError) a
   } deriving (Functor, Applicative, Monad)
-
-class CautType a where
-  cautName :: a -> T.Text

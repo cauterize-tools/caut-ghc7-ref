@@ -15,7 +15,8 @@ import Data.Int
 import Data.Word
 import qualified Data.Text as T
 
-import Cauterize.GHC7.Support.Types
+import Cauterize.GHC7.Support.Result
+import Cauterize.GHC7.Support.Prototypes
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
