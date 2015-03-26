@@ -36,6 +36,7 @@ library
                        bytestring,
                        text,
                        cereal,
+                       mmorph,
                        cereal-plus
   exposed-modules:     Cauterize.GHC7.Support.BuiltIn,
                        Cauterize.GHC7.Support.Cauterize,

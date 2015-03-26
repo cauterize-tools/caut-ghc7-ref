@@ -1,31 +1,45 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Cauterize.GHC7.Support.Types
   ( Trace(..)
-  , TypeHash
-  , mkTypeHash
+  , CautResult(..)
+  , CautError(..)
 
-  , CautResult
+  , CautType(..)
 
   , failWithTrace
+  , withTrace
   ) where
 
-import Control.Monad.Trans
+import Control.Applicative
+import Control.Monad.Morph
 import Control.Monad.Trans.Reader
-import Data.Word
 import qualified Data.Text as T
 
-data Trace = Trace T.Text
+data CautError =
+  CautError { errorMsg :: T.Text    -- Description of the error.
+            , errorTrace :: [Trace] -- Trace to the error. Head of the list is most recent trace.
+            } deriving (Show)
+
+-- Identifies the path through the cauterize structure.
+data Trace = TBuiltIn T.Text
   deriving (Show)
 
-data TypeHash = TypeHash
-  deriving (Show)
+-- Insert information into the trace stack and fail.
+failWithTrace :: (MonadTrans t, Monad (t CautResult))
+              => T.Text -> t CautResult a
+failWithTrace msg = do
+  currentTrace <- lift $ CautResult ask
+  lift $ CautResult $ lift $ Left $ CautError msg currentTrace
 
-type CautResult = ReaderT [Trace] (Either [Trace])
+-- Insert new information into the trace stack.
+withTrace :: (MonadTrans t, Monad (t CautResult), MFunctor t)
+          => Trace -> t CautResult a -> t CautResult a
+withTrace trace = hoist (CautResult . local (trace:) . unCautResult)
 
-mkTypeHash :: [Word8] -> TypeHash
-mkTypeHash _ = TypeHash
+newtype CautResult a =
+  CautResult {
+    unCautResult :: ReaderT [Trace] (Either CautError) a
+  } deriving (Functor, Applicative, Monad)
 
-failWithTrace :: (MonadTrans t, Monad (t (ReaderT [Trace] (Either [Trace])))) =>
-                 T.Text -> t (ReaderT [Trace] (Either [Trace])) b
-failWithTrace t = do
-  current <- lift ask
-  lift $ lift $ Left $ Trace t : current
+class CautType a where
+  cautName :: a -> T.Text

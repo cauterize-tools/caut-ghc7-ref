@@ -1,5 +1,5 @@
 module Cauterize.GHC7.Support.Cauterize
-  ( CautType(..)
+  ( -- CautType(..)
   ) where
 
 import CerealPlus.Serialize
