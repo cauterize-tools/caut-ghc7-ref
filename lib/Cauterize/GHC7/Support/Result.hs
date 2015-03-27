@@ -24,6 +24,10 @@ data Trace = TBuiltIn T.Text
 
            | TArray T.Text
            | TArrayIndex Int
+
+           | TVector T.Text
+           | TVectorTag
+           | TVectorIndex Int
   deriving (Show)
 
 -- Insert information into the trace stack and fail.
