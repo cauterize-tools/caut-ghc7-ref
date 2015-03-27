@@ -19,7 +19,9 @@ executable caut-ghc7-ref
   main-is:             Main.hs
   ghc-options:         -Wall -O2
   build-depends:       base < 5,
+                       caut-ghc7-ref,
                        optparse-applicative >= 0.11.0.1,
+                       bytestring,
                        directory,
                        text,
                        filepath
@@ -37,6 +39,7 @@ library
                        text,
                        cereal,
                        mmorph,
+                       vector,
                        cereal-plus
   exposed-modules:     Cauterize.GHC7.Support.BuiltIn,
                        Cauterize.GHC7.Support.Cauterize,

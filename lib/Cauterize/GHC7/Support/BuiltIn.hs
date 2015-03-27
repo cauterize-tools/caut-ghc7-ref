@@ -18,9 +18,6 @@ import qualified Data.Text as T
 import Cauterize.GHC7.Support.Result
 import Cauterize.GHC7.Support.Prototypes
 
-tshow :: Show a => a -> T.Text
-tshow = T.pack . show
-
 newtype U8  = U8  { unU8  :: Word8 } deriving (Show, Eq, Ord)
 newtype U16 = U16 { unU16 :: Word16 } deriving (Show, Eq, Ord)
 newtype U32 = U32 { unU32 :: Word32 } deriving (Show, Eq, Ord)
@@ -77,6 +74,10 @@ instance Serializable CautResult CBool where
        1 -> return $ CBool True
        0 -> return $ CBool False
        x -> failWithTrace ("Invalid boolean value: " `T.append` tshow x)
+
+-- Make a showable into Text
+tshow :: Show a => a -> T.Text
+tshow = T.pack . show
 
 traceSerializeBI :: Serializable CautResult a => Trace -> a -> Serialize CautResult ()
 traceSerializeBI t v = withTrace t (serialize v)

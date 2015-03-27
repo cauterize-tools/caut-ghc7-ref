@@ -13,10 +13,10 @@ import Control.Monad.Morph
 import Control.Monad.Trans.Reader
 import qualified Data.Text as T
 
-data CautError =
-  CautError { errorMsg :: T.Text    -- Description of the error.
-            , errorTrace :: [Trace] -- Trace to the error. Head of the list is most recent trace.
-            } deriving (Show)
+data CautError
+  = CautError { errorMsg :: T.Text    -- Description of the error.
+              , errorTrace :: [Trace] -- Trace to the error. Head of the list is most recent trace.
+              } deriving (Show)
 
 -- Identifies the path through the cauterize structure.
 data Trace = TBuiltIn T.Text
