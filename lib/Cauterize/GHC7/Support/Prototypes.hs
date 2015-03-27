@@ -9,13 +9,19 @@ module Cauterize.GHC7.Support.Prototypes
   , CautRecord
   , CautCombination
   , CautUnion
+
+  , genArraySerialize
+  , genArrayDeserialize
   ) where
 
 import Cauterize.GHC7.Support.Result
 
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as B
+import qualified Data.Vector as V
 
+import CerealPlus.Serializable
+import Control.Monad
 import CerealPlus.Serializable
 import CerealPlus.Serialize
 import CerealPlus.Deserialize
@@ -54,3 +60,26 @@ class CautType a => CautRecord a where
 class CautType a => CautCombination a where
 
 class CautType a => CautUnion a where
+
+genArraySerialize :: (CautArray a, Serializable CautResult b)
+                  => V.Vector b -> a -> CerealPlus.Serialize.Serialize CautResult ()
+genArraySerialize vs t = withTrace tArray $ if V.length vs /= aLength then fwt else V.mapM_ go vsWithIx
+  where
+    tArray = TArray $ cautName t
+    aLength = arrayLength t
+    fwt = failWithTrace $ T.concat ["Unexpected length: ", tshow (V.length vs), ". Expected ", tshow aLength, "."]
+    vsWithIx = V.zip (V.fromList [0..(V.length vs - 1)]) vs
+    go (ix, v) = withTrace (TArrayIndex ix) (serialize v)
+
+genArrayDeserialize :: (CautArray a, Serializable CautResult b)
+                    => a -> (V.Vector b -> a) -> Deserialize CautResult a
+genArrayDeserialize t ctor = withTrace tArray $ liftM (ctor . V.fromList) (mapM go ixs)
+  where
+    tArray = TArray $ cautName t
+    aLength = arrayLength t
+    ixs = [0..aLength - 1]
+    go ix = withTrace (TArrayIndex ix) deserialize
+
+-- Make a showable into Text
+tshow :: Show a => a -> T.Text
+tshow = T.pack . show
