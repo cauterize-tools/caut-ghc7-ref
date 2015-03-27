@@ -20,6 +20,10 @@ data CautError
 
 -- Identifies the path through the cauterize structure.
 data Trace = TBuiltIn T.Text
+           | TSynonym T.Text
+
+           | TArray T.Text
+           | TArrayIndex Int
   deriving (Show)
 
 -- Insert information into the trace stack and fail.

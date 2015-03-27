@@ -1,6 +1,14 @@
 {-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
 module Cauterize.GHC7.Support.Prototypes
   ( CautType(..)
+
+  , CautSynonym
+  , CautArray(..)
+  , CautVector(..)
+  , CautResult(..)
+  , CautRecord
+  , CautCombination
+  , CautUnion
   ) where
 
 import Cauterize.GHC7.Support.Result
@@ -34,8 +42,15 @@ class CautType a where
                   Right (Done a bs) -> Right (a, B.fromStrict bs)
 
 class CautType a => CautSynonym a where
+
 class CautType a => CautArray a where
+  arrayLength :: a -> Int
+
 class CautType a => CautVector a where
+  vectorMaxLength :: a -> Int
+
 class CautType a => CautRecord a where
+
 class CautType a => CautCombination a where
+
 class CautType a => CautUnion a where
