@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
 module Cauterize.GHC7.Support.Prototypes
   ( CautType(..)
 
@@ -7,7 +7,7 @@ module Cauterize.GHC7.Support.Prototypes
   , CautVector(..)
   , CautResult(..)
   , CautRecord
-  , CautCombination
+  , CautCombination(..)
   , CautUnion
 
   , genSynonymSerialize
@@ -16,6 +16,15 @@ module Cauterize.GHC7.Support.Prototypes
   , genArrayDeserialize
   , genVectorSerialize
   , genVectorDeserialize
+  , genFieldSerialize
+  , genFieldDeserialize
+  , genCombFieldSerialize
+  , genCombFieldDeserialize
+
+  , encodeCombTag
+  , decodeCombTag
+  , fieldPresent
+  , isFlagSet
   ) where
 
 import Cauterize.GHC7.Support.Result
@@ -25,6 +34,8 @@ import CerealPlus.Serialize
 import Control.Monad
 import Control.Monad.Trans.Reader
 import Data.Word
+import Data.Maybe
+import Data.Bits
 import qualified Data.ByteString.Lazy as B
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -61,6 +72,7 @@ class CautType a => CautVector a where
 class CautType a => CautRecord a where
 
 class CautType a => CautCombination a where
+  combinationTagWidth :: a -> Integer
 
 class CautType a => CautUnion a where
 
@@ -93,7 +105,7 @@ genVectorSerialize :: (CautVector a, Serializable CautResult b)
 genVectorSerialize vs t = withTrace (TVector . cautName $ t) $ if vl > maxLen
                               then fwt
                               else withTrace TVectorTag $ do
-                                    tagEncode vTagWidth vl
+                                    tagEncode vTagWidth (fromIntegral vl)
                                     V.mapM_ go (vsWithIx vs)
   where
     vl = V.length vs
@@ -109,18 +121,51 @@ genVectorDeserialize t ctor = withTrace (TVector . cautName $ t) $ do
                                   tag <- tagDecode vTagWidth
                                   if tag < 0 || maxLen < tag
                                     then failWithTrace $ "Unexpected length: " `T.append` tshow tag
-                                    else return tag
+                                    else return $ fromIntegral tag
                                 liftM (ctor . V.fromList) (mapM go [0..vlen - 1])
   where
     maxLen = fromIntegral $ vectorMaxLength t
     vTagWidth = fromIntegral $ vectorTagWidth t
     go ix = withTrace (TArrayIndex ix) deserialize
 
+genFieldSerialize :: Serializable CautResult a => T.Text -> a -> Serialize CautResult ()
+genFieldSerialize n v = withTrace (TRecordField n) (serialize v)
+
+genFieldDeserialize :: Serializable CautResult a => T.Text -> Deserialize CautResult a
+genFieldDeserialize n = withTrace (TRecordField n) deserialize
+
+genCombFieldSerialize :: Serializable CautResult a => T.Text -> Maybe a -> Serialize CautResult ()
+genCombFieldSerialize _ Nothing = return ()
+genCombFieldSerialize t (Just f) = genFieldSerialize t f
+
+genCombFieldDeserialize :: Serializable CautResult a => T.Text -> Bool -> Deserialize CautResult (Maybe a)
+genCombFieldDeserialize _ False = return Nothing
+genCombFieldDeserialize n True = liftM Just (genFieldDeserialize n)
+
 vsWithIx :: V.Vector a -> V.Vector (Int, a)
 vsWithIx vs = V.zip (V.fromList [0..(V.length vs - 1)]) vs
 
-tagEncode :: Int -> Int -> Serialize CautResult ()
-tagEncode w i | i < 0 || (2^w - 1) < i = error "Value out of bounds for tag."
+fieldPresent :: Maybe a -> Bool
+fieldPresent = isJust
+
+isFlagSet :: Word64 -> Int -> Bool
+isFlagSet v ix = v `testBit` ix
+
+calcCombTag :: [Bool] -> Word64
+calcCombTag bits = foldl go zeroBits indexBits
+  where
+    go v (ix, True) = v `setBit` ix
+    go v (_, False) = v
+    indexBits = zip [0..] bits
+
+encodeCombTag :: CautCombination a => a -> [Bool] -> Serialize CautResult ()
+encodeCombTag t flags = withTrace TCombinationTag $ tagEncode (fromIntegral $ combinationTagWidth t) (calcCombTag flags)
+
+decodeCombTag :: CautCombination a => a -> Deserialize CautResult Word64
+decodeCombTag t = withTrace TCombinationTag $ tagDecode (fromIntegral $ combinationTagWidth t)
+
+tagEncode :: Int -> Word64 -> Serialize CautResult ()
+tagEncode w i | i < 0 || (2^(8*w) - 1) < i = error $ "Value out of bounds for tag width " ++ show w ++ ": " ++ show i ++ "."
               | otherwise = case w of
                               1 -> let i' = fromIntegral i :: Word8 in serialize i'
                               2 -> let i' = fromIntegral i :: Word16 in serialize i'
@@ -128,7 +173,7 @@ tagEncode w i | i < 0 || (2^w - 1) < i = error "Value out of bounds for tag."
                               8 -> let i' = fromIntegral i :: Word64 in serialize i'
                               _ -> error $ "Invalid tag width: " ++ show w
 
-tagDecode :: Int -> Deserialize CautResult Int
+tagDecode :: Int -> Deserialize CautResult Word64
 tagDecode w = case w of
                1 -> liftM fromIntegral (deserialize :: Deserialize CautResult Word8)
                2 -> liftM fromIntegral (deserialize :: Deserialize CautResult Word16)

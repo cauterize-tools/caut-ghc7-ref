@@ -28,6 +28,13 @@ data Trace = TBuiltIn T.Text
            | TVector T.Text
            | TVectorTag
            | TVectorIndex Int
+
+           | TRecord T.Text
+           | TRecordField T.Text
+
+           | TCombination T.Text
+           | TCombinationTag
+           | TCombinationField T.Text
   deriving (Show)
 
 -- Insert information into the trace stack and fail.

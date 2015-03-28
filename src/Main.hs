@@ -31,6 +31,48 @@ instance Serializable CautResult AVector where
   serialize t@(AVector vs) = genVectorSerialize vs t
   deserialize = genVectorDeserialize (undefined :: AVector) AVector
 
+data ARecord
+  = ARecord { aRecordFieldBool :: CBool
+            , aRecordFieldU8 :: U8
+            } deriving (Show, Ord, Eq)
+instance CautType ARecord where; cautName _ = "a_record"
+instance CautRecord ARecord where
+instance Serializable CautResult ARecord where
+  serialize r = traceRecord $ do
+    genFieldSerialize "field_bool" (aRecordFieldBool r)
+    genFieldSerialize "field_u8" (aRecordFieldU8 r)
+    where
+      traceRecord = withTrace (TRecord $ cautName r)
+  deserialize = traceRecord $ do
+    a0 <- genFieldDeserialize "field_bool"
+    a1 <- genFieldDeserialize "field_u8"
+    return $ ARecord a0 a1
+    where
+      traceRecord = withTrace (TRecord $ cautName (undefined :: ARecord))
+
+data ACombination
+  = ACombination { aCombinationFieldBool :: Maybe CBool
+                 , aCombinationFieldU8 :: Maybe U8
+                 } deriving (Show, Ord, Eq)
+instance CautType ACombination where; cautName _ = "a_combination"
+instance CautCombination ACombination where; combinationTagWidth _ = 1
+instance Serializable CautResult ACombination where
+  serialize r = traceComb $ do
+    encodeCombTag r [ fieldPresent $ aCombinationFieldBool r
+                    , fieldPresent $ aCombinationFieldU8 r
+                    ]
+    genCombFieldSerialize "field_bool" $ aCombinationFieldBool r
+    genCombFieldSerialize "field_u8" $ aCombinationFieldU8 r
+    where
+      traceComb = withTrace (TCombination $ cautName r)
+  deserialize = traceComb $ do
+    flags <- decodeCombTag (undefined :: ACombination)
+    a0 <- genCombFieldDeserialize "field_bool" (flags `isFlagSet` 0)
+    a1 <- genCombFieldDeserialize "field_u8" (flags `isFlagSet` 1)
+    return $ ACombination a0 a1
+    where
+      traceComb = withTrace (TCombination $ cautName (undefined :: ACombination))
+
 main :: IO ()
 main = do
   case encode (U64 54) of
@@ -51,3 +93,11 @@ main = do
 
   print (encode (AVector (V.fromList [CBool True])))
   print (decode (B.pack [9,1,0,1]) :: Either CautError (AVector, B.ByteString))
+
+  print (encode (ARecord (CBool True) (U8 10)))
+  print (decode (B.pack [0, 10]) :: Either CautError (ARecord, B.ByteString))
+  print (decode (B.pack [3, 10]) :: Either CautError (ARecord, B.ByteString))
+
+  print (encode (ACombination (Just $ CBool False) (Just $ U8 5)))
+  print (decode (B.pack [1,2]) :: Either CautError (ACombination, B.ByteString))
+
