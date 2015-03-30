@@ -29,6 +29,8 @@ module Cauterize.GHC7.Support.Prototypes
   , failUnionTag
   , fieldPresent
   , isFlagSet
+
+  , V.Vector
   ) where
 
 import Cauterize.GHC7.Support.Result

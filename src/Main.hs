@@ -7,7 +7,7 @@ import Cauterize.GHC7.Support.BuiltIn
 import Cauterize.GHC7.Support.Prototypes
 import Cauterize.GHC7.Support.Result
 import CerealPlus.Serializable
-import qualified Data.Vector as V
+import qualified Data.Vector as V (fromList)
 import qualified Data.ByteString.Lazy as B
 
 data ABool = ABool CBool deriving (Show)
@@ -17,14 +17,14 @@ instance Serializable CautResult ABool where
   serialize t@(ABool a) = genSynonymSerialize a t
   deserialize = genSynonymDeserialize (undefined :: ABool) ABool
 
-data AnArray = AnArray (V.Vector CBool) deriving (Show)
+data AnArray = AnArray (Vector CBool) deriving (Show)
 instance CautType AnArray where; cautName _ = "an_array"
 instance CautArray AnArray where; arrayLength _ = 4
 instance Serializable CautResult AnArray where
   serialize t@(AnArray vs) = genArraySerialize vs t
   deserialize = genArrayDeserialize (undefined :: AnArray) AnArray
 
-data AVector = AVector (V.Vector CBool) deriving (Show)
+data AVector = AVector (Vector CBool) deriving (Show)
 instance CautType AVector where; cautName _ = "a_vector"
 instance CautVector AVector where; vectorMaxLength _ = 4; vectorTagWidth _ = 1
 instance Serializable CautResult AVector where
