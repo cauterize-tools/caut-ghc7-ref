@@ -6,9 +6,11 @@ module Cauterize.GHC7.Support.BuiltIn
   , CBool(..)
   ) where
 
+import CerealPlus.Serialize
 import CerealPlus.Deserialize
 import CerealPlus.Serializable
-import CerealPlus.Serialize
+import Data.Serialize.Get
+import Data.Serialize.Put
 import Data.Serialize.IEEE754
 import Control.Monad
 import Data.Int
@@ -48,26 +50,42 @@ instance CautType F64 where; cautName _ = "f64"
 
 instance CautType CBool where; cautName _ = "bool"
 
-instance Serializable CautResult U8  where; serialize (U8  w) = traceSerializeBI tU8  w; deserialize = traceDeserializeBI tU8  U8
-instance Serializable CautResult U16 where; serialize (U16 w) = traceSerializeBI tU16 w; deserialize = traceDeserializeBI tU16 U16
-instance Serializable CautResult U32 where; serialize (U32 w) = traceSerializeBI tU32 w; deserialize = traceDeserializeBI tU32 U32
-instance Serializable CautResult U64 where; serialize (U64 w) = traceSerializeBI tU64 w; deserialize = traceDeserializeBI tU64 U64
+instance Serializable CautResult U8  where
+  serialize (U8 w) = traceSerializeBI putWord8 tU8 w
+  deserialize = traceDeserializeBI getWord8 tU8 U8
+instance Serializable CautResult U16 where
+  serialize (U16 w) = traceSerializeBI putWord16le tU16 w
+  deserialize = traceDeserializeBI getWord16le tU16 U16
+instance Serializable CautResult U32 where
+  serialize (U32 w) = traceSerializeBI putWord32le tU32 w
+  deserialize = traceDeserializeBI getWord32le tU32 U32
+instance Serializable CautResult U64 where
+  serialize (U64 w) = traceSerializeBI putWord64le tU64 w
+  deserialize = traceDeserializeBI getWord64le tU64 U64
 
-instance Serializable CautResult S8  where; serialize (S8  w) = traceSerializeBI tS8  w; deserialize = traceDeserializeBI tS8  S8
-instance Serializable CautResult S16 where; serialize (S16 w) = traceSerializeBI tS16 w; deserialize = traceDeserializeBI tS16 S16
-instance Serializable CautResult S32 where; serialize (S32 w) = traceSerializeBI tS32 w; deserialize = traceDeserializeBI tS32 S32
-instance Serializable CautResult S64 where; serialize (S64 w) = traceSerializeBI tS64 w; deserialize = traceDeserializeBI tS64 S64
+instance Serializable CautResult S8  where
+  serialize (S8  w) = traceSerializeBI putWord8 tS8 (fromIntegral w)
+  deserialize = traceDeserializeBI getWord8 tS8 (S8 . fromIntegral)
+instance Serializable CautResult S16 where
+  serialize (S16 w) = traceSerializeBI putWord16le tS16 (fromIntegral w)
+  deserialize = traceDeserializeBI getWord16le tS16 (S16 . fromIntegral)
+instance Serializable CautResult S32 where
+  serialize (S32 w) = traceSerializeBI putWord32le tS32 (fromIntegral w)
+  deserialize = traceDeserializeBI getWord32le tS32 (S32 . fromIntegral)
+instance Serializable CautResult S64 where
+  serialize (S64 w) = traceSerializeBI putWord64le tS64 (fromIntegral w)
+  deserialize = traceDeserializeBI getWord64le tS64 (S64 . fromIntegral)
 
 instance Serializable CautResult F32 where
-  serialize (F32 w) = withTrace tF32 $ (liftPut . putFloat32le) w
-  deserialize = liftGet $ liftM F32 getFloat32le
+  serialize (F32 w) = traceSerializeBI putFloat32le tF32 w
+  deserialize = traceDeserializeBI getFloat32le tF32 F32
 instance Serializable CautResult F64 where
-  serialize (F64 w) = withTrace tF64 $ (liftPut . putFloat64le) w
-  deserialize = liftGet $ liftM F64 getFloat64le
+  serialize (F64 w) = traceSerializeBI putFloat64le tF64 w
+  deserialize = traceDeserializeBI getFloat64le tF64 F64
 
 instance Serializable CautResult CBool where
-  serialize (CBool True)  = traceSerializeBI tCBool (1 :: Word8)
-  serialize (CBool False) = traceSerializeBI tCBool (0 :: Word8)
+  serialize (CBool True)  = traceSerializeBI putWord8 tCBool (1 :: Word8)
+  serialize (CBool False) = traceSerializeBI putWord8 tCBool (0 :: Word8)
   deserialize = withTrace tCBool $ do
     v <- deserialize :: Deserialize CautResult Word8
     case v of
@@ -79,11 +97,11 @@ instance Serializable CautResult CBool where
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
-traceSerializeBI :: Serializable CautResult a => Trace -> a -> Serialize CautResult ()
-traceSerializeBI t v = withTrace t (serialize v)
+traceSerializeBI :: (s -> Put) -> Trace -> s -> Serialize CautResult ()
+traceSerializeBI m t v = withTrace t (liftPut . m $ v)
 
-traceDeserializeBI :: Serializable CautResult b => Trace -> (b -> a) -> Deserialize CautResult a
-traceDeserializeBI t c = withTrace t (liftM c deserialize)
+traceDeserializeBI :: Get b -> Trace -> (b -> a) -> Deserialize CautResult a
+traceDeserializeBI m t c = withTrace t $ liftGet (liftM c m)
 
 traceBI :: CautType a => a -> Trace
 traceBI t = TBuiltIn (cautName t)
