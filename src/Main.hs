@@ -39,16 +39,17 @@ instance CautType ARecord where; cautName _ = "a_record"
 instance CautRecord ARecord where
 instance Serializable CautResult ARecord where
   serialize r = traceRecord $ do
-    genFieldSerialize "field_bool" (aRecordFieldBool r)
-    genFieldSerialize "field_u8" (aRecordFieldU8 r)
+    genFieldSerialize (TRecordField "field_bool") (aRecordFieldBool r)
+    genFieldSerialize (TRecordField "field_u8") (aRecordFieldU8 r)
     where
       traceRecord = withTrace (TRecord $ cautName r)
   deserialize = traceRecord $ do
-    a0 <- genFieldDeserialize "field_bool"
-    a1 <- genFieldDeserialize "field_u8"
+    a0 <- genFieldDeserialize (TRecordField "field_bool")
+    a1 <- genFieldDeserialize (TRecordField "field_u8")
     return $ ARecord a0 a1
     where
-      traceRecord = withTrace (TRecord $ cautName (undefined :: ARecord))
+      u = undefined :: ARecord
+      traceRecord = withTrace (TRecord $ cautName u)
 
 data ACombination
   = ACombination { aCombinationFieldBool :: Maybe CBool
@@ -66,38 +67,68 @@ instance Serializable CautResult ACombination where
     where
       traceComb = withTrace (TCombination $ cautName r)
   deserialize = traceComb $ do
-    flags <- decodeCombTag (undefined :: ACombination)
+    flags <- decodeCombTag u
     a0 <- genCombFieldDeserialize "field_bool" (flags `isFlagSet` 0)
     a1 <- genCombFieldDeserialize "field_u8" (flags `isFlagSet` 1)
     return $ ACombination a0 a1
     where
-      traceComb = withTrace (TCombination $ cautName (undefined :: ACombination))
+      u = undefined :: ACombination
+      traceComb = withTrace (TCombination $ cautName u)
+
+data AUnion = AUnionCBool CBool
+            | AUnionU8 U8
+  deriving (Show, Eq)
+instance CautType AUnion where; cautName _ = "a_union"
+instance CautUnion AUnion where; unionTagWidth _ = 1
+instance Serializable CautResult AUnion where
+  serialize r = traceUnion $
+    case r of
+      AUnionCBool v -> genUnionFieldSerialize r 0 "field_bool" v
+      AUnionU8 v -> genUnionFieldSerialize r 1 "field_u8" v
+    where
+      traceUnion = withTrace (TUnion $ cautName r)
+  deserialize = traceUnion $ do
+    tag <- decodeUnionTag u
+    case tag of
+      0 -> genUnionFieldDeserialize "field_bool" AUnionCBool
+      1 -> genUnionFieldDeserialize "field_u8" AUnionU8
+      v -> failUnionTag v
+    where
+      u = undefined :: AUnion
+      traceUnion = withTrace (TUnion $ cautName u)
 
 main :: IO ()
 main = do
-  case encode (U64 54) of
-    Left e -> print e
-    Right b -> print $ B.unpack b
+  eprint (encode (U64 54))
+  dprint (decode (B.pack [54,0,0,0,0,0,0,0]) :: Either CautError (U64, B.ByteString))
 
-  print (decode (B.pack [5]) :: Either CautError (CBool, B.ByteString))
-  print (decode (B.pack [5]) :: Either CautError (ABool, B.ByteString))
+  dprint (decode (B.pack [5]) :: Either CautError (CBool, B.ByteString))
+  dprint (decode (B.pack [5]) :: Either CautError (ABool, B.ByteString))
 
-  print (encode (AnArray (V.fromList [CBool False,CBool True,CBool False,CBool True])))
-  print (decode (B.pack [0,1,0,1]) :: Either CautError (AnArray, B.ByteString))
+  eprint (encode (AnArray (V.fromList [CBool False,CBool True,CBool False,CBool True])))
+  dprint (decode (B.pack [0,1,0,1]) :: Either CautError (AnArray, B.ByteString))
 
-  print (encode (AnArray (V.fromList [CBool False, CBool False,CBool True,CBool False,CBool True])))
-  print (decode (B.pack [0,1,2,1]) :: Either CautError (AnArray, B.ByteString))
+  eprint (encode (AnArray (V.fromList [CBool False, CBool False,CBool True,CBool False,CBool True])))
+  dprint (decode (B.pack [0,1,2,1]) :: Either CautError (AnArray, B.ByteString))
 
-  print (encode (AVector (V.fromList [CBool True])))
-  print (decode (B.pack [3,1,0,1]) :: Either CautError (AVector, B.ByteString))
+  eprint (encode (AVector (V.fromList [CBool True])))
+  dprint (decode (B.pack [3,1,0,1]) :: Either CautError (AVector, B.ByteString))
 
-  print (encode (AVector (V.fromList [CBool True])))
-  print (decode (B.pack [9,1,0,1]) :: Either CautError (AVector, B.ByteString))
+  eprint (encode (AVector (V.fromList [CBool True])))
+  dprint (decode (B.pack [9,1,0,1]) :: Either CautError (AVector, B.ByteString))
 
-  print (encode (ARecord (CBool True) (U8 10)))
-  print (decode (B.pack [0, 10]) :: Either CautError (ARecord, B.ByteString))
-  print (decode (B.pack [3, 10]) :: Either CautError (ARecord, B.ByteString))
+  eprint (encode (ARecord (CBool True) (U8 10)))
+  dprint (decode (B.pack [0, 10]) :: Either CautError (ARecord, B.ByteString))
+  dprint (decode (B.pack [3, 10]) :: Either CautError (ARecord, B.ByteString))
 
-  print (encode (ACombination (Just $ CBool False) (Just $ U8 5)))
-  print (decode (B.pack [1,2]) :: Either CautError (ACombination, B.ByteString))
+  eprint (encode (ACombination (Just $ CBool False) (Just $ U8 5)))
+  dprint (decode (B.pack [1,2]) :: Either CautError (ACombination, B.ByteString))
 
+  eprint (encode (AUnionU8 (U8 45)))
+
+  where
+    eprint (Right bs) = putStrLn $ "ENC OK: " ++ show (B.unpack bs)
+    eprint (Left e) = putStrLn $ "ENC ERR: " ++ show e
+
+    dprint (Right v) = putStrLn $ "DEC OK: " ++ show v
+    dprint (Left e) = putStrLn $ "DEC ERR: " ++ show e
