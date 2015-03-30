@@ -10,6 +10,7 @@ import CerealPlus.Serializable
 import qualified Data.Vector as V (fromList)
 import qualified Data.ByteString.Lazy as B
 
+-- Interface for synonyms
 data ABool = ABool CBool deriving (Show)
 instance CautType ABool where; cautName _ = "a_bool"
 instance CautSynonym ABool where
@@ -17,6 +18,7 @@ instance Serializable CautResult ABool where
   serialize t@(ABool a) = genSynonymSerialize a t
   deserialize = genSynonymDeserialize (undefined :: ABool) ABool
 
+-- Interface for arrays
 data AnArray = AnArray (Vector CBool) deriving (Show)
 instance CautType AnArray where; cautName _ = "an_array"
 instance CautArray AnArray where; arrayLength _ = 4
@@ -24,6 +26,7 @@ instance Serializable CautResult AnArray where
   serialize t@(AnArray vs) = genArraySerialize vs t
   deserialize = genArrayDeserialize (undefined :: AnArray) AnArray
 
+-- Interface for vectors
 data AVector = AVector (Vector CBool) deriving (Show)
 instance CautType AVector where; cautName _ = "a_vector"
 instance CautVector AVector where; vectorMaxLength _ = 4; vectorTagWidth _ = 1
@@ -31,6 +34,7 @@ instance Serializable CautResult AVector where
   serialize t@(AVector vs) = genVectorSerialize vs t
   deserialize = genVectorDeserialize (undefined :: AVector) AVector
 
+-- Interface for records
 data ARecord
   = ARecord { aRecordFieldBool :: CBool
             , aRecordFieldU8 :: U8
@@ -51,6 +55,7 @@ instance Serializable CautResult ARecord where
       u = undefined :: ARecord
       traceRecord = withTrace (TRecord $ cautName u)
 
+-- Interface for combinations
 data ACombination
   = ACombination { aCombinationFieldBool :: Maybe CBool
                  , aCombinationFieldU8 :: Maybe U8
@@ -75,6 +80,7 @@ instance Serializable CautResult ACombination where
       u = undefined :: ACombination
       traceComb = withTrace (TCombination $ cautName u)
 
+-- Interface for unions
 data AUnion = AUnionCBool CBool
             | AUnionU8 U8
   deriving (Show, Eq)
