@@ -8,7 +8,7 @@ module Cauterize.GHC7.Support.Prototypes
   , CautResult(..)
   , CautRecord
   , CautCombination(..)
-  , CautUnion
+  , CautUnion(..)
 
   , genSynonymSerialize
   , genSynonymDeserialize
@@ -20,9 +20,13 @@ module Cauterize.GHC7.Support.Prototypes
   , genFieldDeserialize
   , genCombFieldSerialize
   , genCombFieldDeserialize
+  , genUnionFieldSerialize
+  , genUnionFieldDeserialize
 
   , encodeCombTag
   , decodeCombTag
+  , decodeUnionTag
+  , failUnionTag
   , fieldPresent
   , isFlagSet
   ) where
@@ -32,6 +36,7 @@ import CerealPlus.Deserialize
 import CerealPlus.Serializable
 import CerealPlus.Serialize
 import Control.Monad
+import Control.Monad.Trans
 import Control.Monad.Trans.Reader
 import Data.Word
 import Data.Maybe
@@ -75,6 +80,7 @@ class CautType a => CautCombination a where
   combinationTagWidth :: a -> Integer
 
 class CautType a => CautUnion a where
+  unionTagWidth :: a -> Integer
 
 genSynonymSerialize :: (CautSynonym a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
 genSynonymSerialize v t = withTrace (TSynonym $ cautName t) (serialize v)
@@ -128,19 +134,21 @@ genVectorDeserialize t ctor = withTrace (TVector . cautName $ t) $ do
     vTagWidth = fromIntegral $ vectorTagWidth t
     go ix = withTrace (TArrayIndex ix) deserialize
 
-genFieldSerialize :: Serializable CautResult a => T.Text -> a -> Serialize CautResult ()
-genFieldSerialize n v = withTrace (TRecordField n) (serialize v)
+-- genFieldSerialize :: Serializable CautResult a => T.Text -> a -> Serialize CautResult ()
+genFieldSerialize :: Serializable CautResult a => Trace -> a -> Serialize CautResult ()
+genFieldSerialize t v = withTrace t (serialize v)
 
-genFieldDeserialize :: Serializable CautResult a => T.Text -> Deserialize CautResult a
-genFieldDeserialize n = withTrace (TRecordField n) deserialize
+-- genFieldDeserialize :: Serializable CautResult a => T.Text -> Deserialize CautResult a
+genFieldDeserialize :: Serializable CautResult a => Trace -> Deserialize CautResult a
+genFieldDeserialize t = withTrace t deserialize
 
 genCombFieldSerialize :: Serializable CautResult a => T.Text -> Maybe a -> Serialize CautResult ()
 genCombFieldSerialize _ Nothing = return ()
-genCombFieldSerialize t (Just f) = genFieldSerialize t f
+genCombFieldSerialize t (Just f) = genFieldSerialize (TCombinationField t) f
 
 genCombFieldDeserialize :: Serializable CautResult a => T.Text -> Bool -> Deserialize CautResult (Maybe a)
 genCombFieldDeserialize _ False = return Nothing
-genCombFieldDeserialize n True = liftM Just (genFieldDeserialize n)
+genCombFieldDeserialize n True = liftM Just (genFieldDeserialize $ TCombinationField n)
 
 vsWithIx :: V.Vector a -> V.Vector (Int, a)
 vsWithIx vs = V.zip (V.fromList [0..(V.length vs - 1)]) vs
@@ -163,6 +171,28 @@ encodeCombTag t flags = withTrace TCombinationTag $ tagEncode (fromIntegral $ co
 
 decodeCombTag :: CautCombination a => a -> Deserialize CautResult Word64
 decodeCombTag t = withTrace TCombinationTag $ tagDecode (fromIntegral $ combinationTagWidth t)
+
+genUnionFieldSerialize :: (CautUnion a, Serializable CautResult b)
+                       => a      -- ^ the union type
+                       -> Word64 -- ^ the union tag value
+                       -> T.Text -- ^ the union field name
+                       -> b      -- ^ the union field value
+                       -> Serialize CautResult ()
+genUnionFieldSerialize u ix n v = do
+  withTrace TUnionTag $ tagEncode (fromIntegral $ unionTagWidth u) ix
+  genFieldSerialize (TUnionField n) v
+
+genUnionFieldDeserialize :: Serializable CautResult a
+                         => T.Text -> (a -> r) -> Deserialize CautResult r
+genUnionFieldDeserialize n ctor = liftM ctor $ genFieldDeserialize (TUnionField n)
+
+decodeUnionTag :: CautUnion a
+               => a -> Deserialize CautResult Word64
+decodeUnionTag t = withTrace TUnionTag (tagDecode . fromIntegral $ unionTagWidth t)
+
+failUnionTag :: (MonadTrans t, Show b, Monad (t CautResult))
+             => b -> t CautResult a
+failUnionTag v = failWithTrace $ "Unexpected tag: " `T.append` tshow v
 
 tagEncode :: Int -> Word64 -> Serialize CautResult ()
 tagEncode w i | i < 0 || (2^(8*w) - 1) < i = error $ "Value out of bounds for tag width " ++ show w ++ ": " ++ show i ++ "."

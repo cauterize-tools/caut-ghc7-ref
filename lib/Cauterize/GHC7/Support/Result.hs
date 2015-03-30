@@ -35,6 +35,10 @@ data Trace = TBuiltIn T.Text
            | TCombination T.Text
            | TCombinationTag
            | TCombinationField T.Text
+
+           | TUnion T.Text
+           | TUnionTag
+           | TUnionField T.Text
   deriving (Show)
 
 -- Insert information into the trace stack and fail.
