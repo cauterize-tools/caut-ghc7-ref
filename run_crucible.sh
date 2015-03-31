@@ -9,4 +9,4 @@
            --schema-count=1 \
            --instance-count=200 \
            --type-count=10 \
-           --enc-size=1048576
+           --enc-size=1024

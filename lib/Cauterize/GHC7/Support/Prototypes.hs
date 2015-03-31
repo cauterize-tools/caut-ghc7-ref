@@ -31,6 +31,7 @@ module Cauterize.GHC7.Support.Prototypes
   , isFlagSet
 
   , V.Vector
+  , Serializable(..)
   ) where
 
 import Cauterize.GHC7.Support.Result

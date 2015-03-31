@@ -8,6 +8,7 @@ import Cauterize.GHC7.Options
 import Control.Monad
 import Data.Data
 import Data.Word
+import Data.Char (toLower)
 import System.Directory
 import System.FilePath.Posix
 import Text.Hastache
@@ -73,6 +74,7 @@ data HsMetaCtx = HsMetaCtx
 data HsTypeInfo = HsTypeInfo
   { hstPrototype :: T.Text
   , hstConstructor :: T.Text
+  , hstNamePrefix :: T.Text
   , hstName :: T.Text
   , hstHash :: [Word8]
   , hstSize :: HsTSizeCtx
@@ -86,12 +88,19 @@ data HsBuiltIn
   | HsBool
   deriving (Show, Eq, Data, Typeable)
 
+data HsTFieldSet = HsTFieldSet
+  { hstfsFirstField :: HsTFieldInfo
+  , hstfsRemaining :: [HsTFieldInfo] }
+  deriving (Show, Eq, Data, Typeable)
+
 data HsTFieldInfo = HsTDataField
                     { hstdfName :: T.Text
+                    , hstdfCtor :: T.Text
                     , hstdfIndex :: Integer
                     , hstdfRefCtor :: T.Text }
                   | HsTEmptyField
                     { hstefName :: T.Text
+                    , hstefCtor :: T.Text
                     , hstefIndex :: Integer }
   deriving (Show, Eq, Data, Typeable)
 
@@ -100,9 +109,9 @@ data HsTypeCtx
   | HsTSynonym { hstDetail :: HsTypeInfo, hstSynnedCtor :: T.Text }
   | HsTArray { hstDetail :: HsTypeInfo, hstArrayRefCtor :: T.Text, hstArrayLen :: Integer }
   | HsTVector { hstDetail :: HsTypeInfo, hstVectorRefCtor :: T.Text, hstVectorMaxLen :: Integer, hstVectorLenWidth :: Integer  }
-  | HsTRecord { hstDetail :: HsTypeInfo, hstRecordFields :: [HsTFieldInfo] }
-  | HsTCombination { hstDetail :: HsTypeInfo, hstCombinationFields :: [HsTFieldInfo], hstCombinationFlagsWidth :: Integer }
-  | HsTUnion { hstDetail :: HsTypeInfo, hstUnionFields :: [HsTFieldInfo], hstUnionTagWidth :: Integer }
+  | HsTRecord { hstDetail :: HsTypeInfo, hstRecordFields :: HsTFieldSet }
+  | HsTCombination { hstDetail :: HsTypeInfo, hstCombinationFields :: HsTFieldSet, hstCombinationFlagsWidth :: Integer }
+  | HsTUnion { hstDetail :: HsTypeInfo, hstUnionFields :: HsTFieldSet, hstUnionTagWidth :: Integer }
   deriving (Show, Eq, Data, Typeable)
 
 data HsTSizeCtx = HsTSizeCtx { hstMinSize :: Integer, hstMaxSize :: Integer }
@@ -118,7 +127,7 @@ renderTo spec meta templatePath destPath = do
   T.writeFile destPath rendered
   where
     mkCfg = do
-      tpath <- getDataFileName "templates/sub"
+      tpath <- getDataFileName "sub"
       return $ defaultConfig { muEscapeFunc = id
                              , muTemplateFileDir = Just tpath } :: IO (MuConfig IO)
 
@@ -158,16 +167,16 @@ mkHsType t =
                    , hstVectorLenWidth = C.builtInSize lr }
     Spec.Record { Spec.unRecord = (C.TRecord { C.recordFields = C.Fields rfs }) }
       -> HsTRecord { hstDetail = mkTypeInfo "record"
-                   , hstRecordFields = map mkFieldInfo rfs }
+                   , hstRecordFields = mkFieldSet $ filterEmpties rfs }
     Spec.Combination { Spec.unCombination = (C.TCombination { C.combinationFields = C.Fields cfs })
                      , Spec.flagsRepr = (Spec.FlagsRepr fr) }
       -> HsTCombination { hstDetail = mkTypeInfo "combination"
-                        , hstCombinationFields = map mkFieldInfo cfs
+                        , hstCombinationFields = mkFieldSet cfs
                         , hstCombinationFlagsWidth = C.builtInSize fr }
     Spec.Union { Spec.unUnion = (C.TUnion { C.unionFields = C.Fields ufs })
                , Spec.tagRepr = (Spec.TagRepr tr) }
       -> HsTUnion { hstDetail = mkTypeInfo "union"
-                  , hstUnionFields = map mkFieldInfo ufs
+                  , hstUnionFields = mkFieldSet ufs
                   , hstUnionTagWidth = C.builtInSize tr }
   where
     mkTypeInfo p =
@@ -177,14 +186,25 @@ mkHsType t =
         , hstSize = HsTSizeCtx { hstMinSize = Spec.minSize t, hstMaxSize = Spec.maxSize t }
         , hstPrototype = p
         , hstConstructor = nameToHsName $ Spec.typeName t
+        , hstNamePrefix = downFirst $ nameToHsName $ Spec.typeName t
         }
+
+    downFirst txt = (toLower $ T.head txt) `T.cons` (T.tail txt)
 
     boolHack p = (mkTypeInfo p) { hstName = "c_bool" }
 
+    filterEmpties fs = filter isDF fs
+      where
+        isDF (C.Field {}) = True
+        isDF _ = False
+
+    mkFieldSet (f:fs) = HsTFieldSet (mkFieldInfo f) (map mkFieldInfo fs)
+    mkFieldSet _ = error "Cauterize.GHC7.mkFieldSet: Must have at least one field."
+
     mkFieldInfo C.Field { C.fName = n, C.fRef = r, C.fIndex = i } =
-      HsTDataField { hstdfName = n, hstdfRefCtor = nameToHsName r, hstdfIndex = i }
+      HsTDataField { hstdfName = n, hstdfCtor = nameToHsName n, hstdfRefCtor = nameToHsName r, hstdfIndex = i }
     mkFieldInfo C.EmptyField { C.fName = n, C.fIndex = i } =
-      HsTEmptyField { hstefName = n, hstefIndex = i }
+      HsTEmptyField { hstefName = n, hstefCtor = nameToHsName n, hstefIndex = i }
 
     biConv C.BIu8  = HsU8
     biConv C.BIu16 = HsU16

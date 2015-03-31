@@ -1,3 +1,4 @@
+{-# LANGUAGe MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, OverloadedStrings #-}
 module Cauterize.Generated.{{hscLibName}} (
 {{#hscTypes}}
 {{#hstDetail}}
@@ -7,6 +8,7 @@ module Cauterize.Generated.{{hscLibName}} (
   ) where
 
 import Cauterize.GHC7.Support.BuiltIn
+import Cauterize.GHC7.Support.Prototypes
 
 {{#hscTypes}}
 {{> array_tmpl.hs}}
@@ -16,4 +18,5 @@ import Cauterize.GHC7.Support.BuiltIn
 {{> synonym_tmpl.hs}}
 {{> union_tmpl.hs}}
 {{> vector_tmpl.hs}}
+
 {{/hscTypes}}
