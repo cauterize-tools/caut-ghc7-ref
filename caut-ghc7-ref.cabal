@@ -17,7 +17,8 @@ cabal-version:       >= 1.10
 
 data-dir:   data
 data-files: cabal_file.cabal.tmpl,
-            Module.hs
+            Module.hs,
+            test_client.hs.tmpl
 
 executable caut-ghc7-ref
   main-is:             Main.hs

@@ -1,10 +1,19 @@
-name:                {{libname}}
+name:                {{hscCabalName}}
+version:             0.0.0.1
 build-type:          Simple
 cabal-version:       >= 1.10
+
+executable {{hscCabalName}}_crucible_client
+  main-is:             Main.hs
+  ghc-options:         -Wall -O2
+  hs-source-dirs:      crucible_client
+  default-language:    Haskell2010
+  build-depends:       base < 5,
+                       {{hscCabalName}}
 
 library
   hs-source-dirs:      src
   default-language:    Haskell2010
-  exposed-modules:     Cauterize.Generated.{{modname}}
+  exposed-modules:     Cauterize.Generated.{{hscLibName}}
   build-depends:       base < 5,
                        caut-ghc7-ref

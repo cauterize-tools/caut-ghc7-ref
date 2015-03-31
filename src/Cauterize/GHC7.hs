@@ -36,6 +36,7 @@ caut2hs (CautGHC7Opts { specFile = specPath, metaFile = metaPath, outputDirector
 generateOutput :: Spec.Spec -> Meta.Meta -> FilePath -> IO ()
 generateOutput spec meta out = do
   createPath [out, "src", "Cauterize", "Generated"]
+  createPath [out, "crucible_client"]
   renderFiles
   where
     specName = Spec.specName spec
@@ -44,18 +45,22 @@ generateOutput spec meta out = do
     renderFiles = do
       cf_tmpl <- getDataFileName "cabal_file.cabal.tmpl"
       mod_tmpl <- getDataFileName "Module.hs"
+      tc_tmpl <- getDataFileName "test_client.hs.tmpl"
 
       let cabalPath = T.unpack specName ++ ".cabal"
       let modPath = foldl combine "" ["src", "Cauterize", "Generated", T.unpack hsName ++ ".hs"]
+      let testPath = foldl combine "" ["crucible_client", "Main.hs"]
 
       renderTo spec meta cf_tmpl (out `combine` cabalPath)
       renderTo spec meta mod_tmpl (out `combine` modPath)
+      renderTo spec meta tc_tmpl (out `combine` testPath)
 
 nameToHsName :: T.Text -> T.Text
 nameToHsName n = T.concat $ map T.toTitle $ T.split (== '_') n
 
 data HsCtx = HsCtx
   { hscLibName :: T.Text
+  , hscCabalName :: T.Text
   , hscMeta :: HsMetaCtx
   , hscTypes :: [HsTypeCtx]
   } deriving (Show, Eq, Data, Typeable)
@@ -120,6 +125,7 @@ renderTo spec meta templatePath destPath = do
 mkHsCtx :: Spec.Spec -> Meta.Meta -> HsCtx
 mkHsCtx spec meta = HsCtx
   { hscLibName = nameToHsName $ Spec.specName spec
+  , hscCabalName = Spec.specName spec
   , hscMeta =
       HsMetaCtx
         { hsmLengthWidth = Meta.metaDataLength meta
@@ -131,6 +137,9 @@ mkHsCtx spec meta = HsCtx
 mkHsType :: Spec.SpType -> HsTypeCtx
 mkHsType t =
   case t of
+    Spec.BuiltIn { Spec.unBuiltIn = (C.TBuiltIn C.BIbool) }
+      -> HsTBuiltIn { hstDetail = boolHack "builtin"
+                    , hstBIInstance = biConv C.BIbool }
     Spec.BuiltIn { Spec.unBuiltIn = (C.TBuiltIn b) }
       -> HsTBuiltIn { hstDetail = mkTypeInfo "builtin"
                     , hstBIInstance = biConv b }
@@ -169,6 +178,8 @@ mkHsType t =
         , hstPrototype = p
         , hstConstructor = nameToHsName $ Spec.typeName t
         }
+
+    boolHack p = (mkTypeInfo p) { hstName = "c_bool" }
 
     mkFieldInfo C.Field { C.fName = n, C.fRef = r, C.fIndex = i } =
       HsTDataField { hstdfName = n, hstdfRefCtor = nameToHsName r, hstdfIndex = i }

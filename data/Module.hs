@@ -1,3 +1,19 @@
-module Cauterize.Generated.{{hscLibName}}
-  (
+module Cauterize.Generated.{{hscLibName}} (
+{{#hscTypes}}
+{{#hstDetail}}
+  {{hstConstructor}}(..),
+{{/hstDetail}}
+{{/hscTypes}}
   ) where
+
+import Cauterize.GHC7.Support.BuiltIn
+
+{{#hscTypes}}
+{{> array_tmpl.hs}}
+{{> builtin_tmpl.hs}}
+{{> combination_tmpl.hs}}
+{{> record_tmpl.hs}}
+{{> synonym_tmpl.hs}}
+{{> union_tmpl.hs}}
+{{> vector_tmpl.hs}}
+{{/hscTypes}}
