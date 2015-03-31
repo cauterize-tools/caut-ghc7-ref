@@ -110,7 +110,7 @@ spec = describe "Prototypes" $ do
   context "works over arrays" $ do
     it "can encode" $ do
       let a = encode (AnArray (V.fromList [CBool False,CBool True,CBool False,CBool True]))
-      Right (B.pack [0,1,0,1]) `shouldBe` a
+      a `shouldBe` Right (B.pack [0,1,0,1])
 
     it "can decode" $ do
       let b = decode $ B.pack [3,0,0,0]
@@ -118,58 +118,58 @@ spec = describe "Prototypes" $ do
 
     it "can detect incorrect lengths" $ do
       let e = encode (AnArray $ V.fromList [CBool False, CBool False])
-      Left (CautError "Unexpected length: 2. Expected 4." [TArray "an_array"]) `shouldBe` e
+      e `shouldBe` Left (CautError "Unexpected length: 2. Expected 4." [TArray "an_array"])
 
   context "works over vectors" $ do
     it "can encode" $ do
       let v0 = encode (AVector (V.fromList [CBool True]))
-      Right (B.pack [1,1]) `shouldBe` v0
+      v0 `shouldBe` Right (B.pack [1,1])
 
       let v1 = encode (AVector (V.fromList [CBool False, CBool True]))
-      Right (B.pack [2,0,1]) `shouldBe` v1
+      v1 `shouldBe` Right (B.pack [2,0,1])
 
     it "can decode" $ do
       let b = decode $ B.pack [3,0,0,0]
-      Right (AVector $ V.fromList [CBool False, CBool False, CBool False], B.empty) `shouldBe` b
+      b `shouldBe` Right (AVector $ V.fromList [CBool False, CBool False, CBool False], B.empty)
 
     it "can detect incorrect lengths" $ do
       let e = encode (AVector $ V.fromList [CBool False, CBool False, CBool False, CBool False, CBool False])
-      Left (CautError "Unexpected length: 5. Expected <= 4." [TVector "a_vector"]) `shouldBe` e
+      e `shouldBe` Left (CautError "Unexpected length: 5. Expected <= 4." [TVector "a_vector"])
 
   context "works over records" $ do
     it "can encode" $ do
       let r = encode (ARecord (CBool True) (U8 10))
-      Right (B.pack [1,10]) `shouldBe` r
+      r `shouldBe` Right (B.pack [1,10])
 
     it "can decode" $ do
       let b = decode $ B.pack [1, 20]
-      Right (ARecord (CBool True) (U8 20), B.empty) `shouldBe` b
+      b `shouldBe` Right (ARecord (CBool True) (U8 20), B.empty)
 
   context "works over combinations" $ do
     it "can encode" $ do
       let c = encode (ACombination (Just $ CBool False) (Just $ U8 5))
-      Right (B.pack [3,0,5]) `shouldBe` c
+      c `shouldBe` Right (B.pack [3,0,5])
 
     it "can decode" $ do
       let b0 = decode $ B.pack [0]
-      Right (ACombination Nothing Nothing, B.empty) `shouldBe` b0
+      b0 `shouldBe` Right (ACombination Nothing Nothing, B.empty)
 
       let b1 = decode $ B.pack [2, 12]
-      Right (ACombination Nothing (Just $ U8 12), B.empty) `shouldBe` b1
+      b1 `shouldBe` Right (ACombination Nothing (Just $ U8 12), B.empty)
 
     it "can detect incorrect bit flags" $ do
       let e = decode $ B.pack [7, 0, 0] :: Either CautError (ACombination, B.ByteString)
-      Left (CautError "Expected combination flags < (2^2). Got: 7." [TCombinationTag,TCombination "a_combination"]) `shouldBe` e
+      e `shouldBe` Left (CautError "Expected combination flags < (2^2). Got: 7." [TCombinationTag,TCombination "a_combination"])
 
   context "works over unions" $ do
     it "can encode" $ do
       let u = encode (AUnionU8 (U8 45))
-      Right (B.pack [1,45]) `shouldBe` u
+      u `shouldBe` Right (B.pack [1,45])
 
     it "can decode" $ do
       let b = decode $ B.pack [0, 1]
-      Right (AUnionCBool (CBool True), B.empty) `shouldBe` b
+      b `shouldBe` Right (AUnionCBool (CBool True), B.empty)
 
     it "can detect incorrect tags" $ do
       let e = decode $ B.pack [7, 0, 0] :: Either CautError (AUnion, B.ByteString)
-      Left (CautError "Unexpected tag: 7" [TUnion "a_union"]) `shouldBe` e
+      e `shouldBe` Left (CautError "Unexpected tag: 7" [TUnion "a_union"])
