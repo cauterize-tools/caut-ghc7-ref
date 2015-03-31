@@ -80,6 +80,7 @@ class CautType a => CautRecord a where
 
 class CautType a => CautCombination a where
   combinationTagWidth :: a -> Integer
+  combinationMaxIndex :: a -> Integer
 
 class CautType a => CautUnion a where
   unionTagWidth :: a -> Integer
@@ -172,7 +173,13 @@ encodeCombTag :: CautCombination a => a -> [Bool] -> Serialize CautResult ()
 encodeCombTag t flags = withTrace TCombinationTag $ tagEncode (fromIntegral $ combinationTagWidth t) (calcCombTag flags)
 
 decodeCombTag :: CautCombination a => a -> Deserialize CautResult Word64
-decodeCombTag t = withTrace TCombinationTag $ tagDecode (fromIntegral $ combinationTagWidth t)
+decodeCombTag t = withTrace TCombinationTag $ do
+  flags <- tagDecode (fromIntegral $ combinationTagWidth t)
+  if flags < 2^maxIxP1
+    then return flags
+    else failWithTrace $ T.concat ["Expected combination flags < (2^", tshow maxIxP1, "). Got: ", tshow flags, "."]
+  where
+    maxIxP1 = combinationMaxIndex t + 1
 
 genUnionFieldSerialize :: (CautUnion a, Serializable CautResult b)
                        => a      -- ^ the union type

@@ -16,7 +16,7 @@ import qualified Data.Text as T
 data CautError
   = CautError { errorMsg :: T.Text    -- Description of the error.
               , errorTrace :: [Trace] -- Trace to the error. Head of the list is most recent trace.
-              } deriving (Show)
+              } deriving (Show, Eq)
 
 -- Identifies the path through the cauterize structure.
 data Trace = TBuiltIn T.Text
@@ -39,7 +39,7 @@ data Trace = TBuiltIn T.Text
            | TUnion T.Text
            | TUnionTag
            | TUnionField T.Text
-  deriving (Show)
+  deriving (Show, Eq)
 
 -- Insert information into the trace stack and fail.
 failWithTrace :: (MonadTrans t, Monad (t CautResult))
