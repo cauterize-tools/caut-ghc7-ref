@@ -32,6 +32,7 @@ module Cauterize.GHC7.Support.Prototypes
 
   , V.Vector
   , Serializable(..)
+  , ap
   ) where
 
 import Cauterize.GHC7.Support.Result

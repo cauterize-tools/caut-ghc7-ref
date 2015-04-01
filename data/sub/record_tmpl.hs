@@ -21,13 +21,13 @@ instance Serializable CautResult {{hstConstructor}} where
 {{/hstRecordFields}}
     where
       traceRecord = withTrace (TRecord $ cautName r)
-  deserialize = traceRecord $ do
+  deserialize = traceRecord $
+    return {{hstConstructor}}
 {{#hstRecordFields}}
 {{#hstfsAllFields}}
-    {{hstNamePrefix}}{{hstfCtor}}Arg <- genFieldDeserialize (TRecordField "{{hstfName}}")
+      `ap` genFieldDeserialize (TRecordField "{{hstfName}}")
 {{/hstfsAllFields}}
 {{/hstRecordFields}}
-    return $ {{hstConstructor}} {{#hstRecordFields}}{{#hstfsAllFields}}{{hstNamePrefix}}{{hstfCtor}}Arg {{/hstfsAllFields}}{{/hstRecordFields}}
     where
       u = undefined :: {{hstConstructor}}
       traceRecord = withTrace (TRecord $ cautName u)
