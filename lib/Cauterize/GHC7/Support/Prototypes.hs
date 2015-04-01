@@ -21,6 +21,7 @@ module Cauterize.GHC7.Support.Prototypes
   , genCombFieldSerialize
   , genCombFieldDeserialize
   , genUnionFieldSerialize
+  , genUnionFieldSerializeEmpty
   , genUnionFieldDeserialize
 
   , encodeCombTag
@@ -192,6 +193,10 @@ genUnionFieldSerialize :: (CautUnion a, Serializable CautResult b)
 genUnionFieldSerialize u ix n v = do
   withTrace TUnionTag $ tagEncode (fromIntegral $ unionTagWidth u) ix
   genFieldSerialize (TUnionField n) v
+
+genUnionFieldSerializeEmpty :: CautUnion a
+                            => a -> Word64 -> Serialize CautResult ()
+genUnionFieldSerializeEmpty u ix = withTrace TUnionTag $ tagEncode (fromIntegral $ unionTagWidth u) ix
 
 genUnionFieldDeserialize :: Serializable CautResult a
                          => T.Text -> (a -> r) -> Deserialize CautResult r

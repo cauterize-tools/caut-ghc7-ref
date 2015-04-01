@@ -85,6 +85,7 @@ instance Serializable CautResult ACombination where
 -- Interface for unions
 data AUnion = AUnionCBool CBool
             | AUnionU8 U8
+            | AUnionEmpty
   deriving (Show, Eq)
 instance CautType AUnion where; cautName _ = "a_union"
 instance CautUnion AUnion where; unionTagWidth _ = 1
@@ -93,6 +94,7 @@ instance Serializable CautResult AUnion where
     case r of
       AUnionCBool v -> genUnionFieldSerialize r 0 "field_bool" v
       AUnionU8 v -> genUnionFieldSerialize r 1 "field_u8" v
+      AUnionEmpty -> genUnionFieldSerializeEmpty r 2
     where
       traceUnion = withTrace (TUnion $ cautName r)
   deserialize = traceUnion $ do
@@ -100,6 +102,7 @@ instance Serializable CautResult AUnion where
     case tag of
       0 -> genUnionFieldDeserialize "field_bool" AUnionCBool
       1 -> genUnionFieldDeserialize "field_u8" AUnionU8
+      2 -> return AUnionEmpty
       v -> failUnionTag v
     where
       u = undefined :: AUnion
@@ -166,9 +169,17 @@ spec = describe "Prototypes" $ do
       let u = encode (AUnionU8 (U8 45))
       u `shouldBe` Right (B.pack [1,45])
 
+    it "can encode empty alternatives" $ do
+      let u = encode AUnionEmpty
+      u `shouldBe` Right (B.pack [2])
+
     it "can decode" $ do
       let b = decode $ B.pack [0, 1]
       b `shouldBe` Right (AUnionCBool (CBool True), B.empty)
+
+    it "can decode empty alternatives" $ do
+      let b = decode $ B.pack [2]
+      b `shouldBe` Right (AUnionEmpty, B.empty)
 
     it "can detect incorrect tags" $ do
       let e = decode $ B.pack [7, 0, 0] :: Either CautError (AUnion, B.ByteString)
