@@ -9,6 +9,7 @@ module Cauterize.Generated.{{hscLibName}} (
 
 import Cauterize.GHC7.Support.BuiltIn
 import Cauterize.GHC7.Support.Prototypes
+import Cauterize.GHC7.Support.Result
 
 {{#hscTypes}}
 {{> array_tmpl.hs}}
