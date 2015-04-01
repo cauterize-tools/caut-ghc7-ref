@@ -7,4 +7,5 @@ instance Serializable CautResult {{hstConstructor}} where
   serialize t@({{hstConstructor}} vs) = genVectorSerialize vs t
   deserialize = genVectorDeserialize (undefined :: {{hstConstructor}}) {{hstConstructor}}
 {{/hstDetail}}
+
 {{/HsTVector}}

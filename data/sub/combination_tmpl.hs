@@ -43,26 +43,19 @@ instance Serializable CautResult {{hstConstructor}} where
   deserialize = traceComb $ do
     flags <- decodeCombTag u
 {{#hstCombinationFields}}
-{{#hstfsFirstField}}
+{{#hstfsAllFields}}
 {{#HsTDataField}}
     {{hstNamePrefix}}{{hstfCtor}}Arg <- genCombFieldDeserialize "{{hstfName}}" (flags `isFlagSet` {{hstfIndex}})
 {{/HsTDataField}}
 {{#HsTEmptyField}}
     {{hstNamePrefix}}{{hstfCtor}}Arg <- return (Just ())
 {{/HsTEmptyField}}
-{{/hstfsFirstField}}
-{{#hstfsRemaining}}
-{{#HsTDataField}}
-    {{hstNamePrefix}}{{hstfCtor}}Arg <- genCombFieldDeserialize "{{hstfName}}" (flags `isFlagSet` {{hstfIndex}})
-{{/HsTDataField}}
-{{#HsTEmptyField}}
-    {{hstNamePrefix}}{{hstfCtor}}Arg <- return (Just ())
-{{/HsTEmptyField}}
-{{/hstfsRemaining}}
+{{/hstfsAllFields}}
 {{/hstCombinationFields}}
     return $ {{hstConstructor}} {{#hstCombinationFields}}{{#hstfsAllFields}}{{hstNamePrefix}}{{hstfCtor}}Arg {{/hstfsAllFields}}{{/hstCombinationFields}}
     where
       u = undefined :: {{hstConstructor}}
       traceComb = withTrace (TCombination $ cautName u)
 {{/hstDetail}}
+
 {{/HsTCombination}}

@@ -32,4 +32,5 @@ instance Serializable CautResult {{hstConstructor}} where
       u = undefined :: {{hstConstructor}}
       traceRecord = withTrace (TRecord $ cautName u)
 {{/hstDetail}}
+
 {{/HsTRecord}}

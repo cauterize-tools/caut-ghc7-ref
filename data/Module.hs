@@ -19,5 +19,4 @@ import Cauterize.GHC7.Support.Result
 {{> synonym_tmpl.hs}}
 {{> union_tmpl.hs}}
 {{> vector_tmpl.hs}}
-
 {{/hscTypes}}
