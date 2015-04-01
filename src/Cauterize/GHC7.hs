@@ -89,19 +89,21 @@ data HsBuiltIn
   deriving (Show, Eq, Data, Typeable)
 
 data HsTFieldSet = HsTFieldSet
-  { hstfsFirstField :: HsTFieldInfo
-  , hstfsRemaining :: [HsTFieldInfo] }
-  deriving (Show, Eq, Data, Typeable)
+  { hstfsAllFields :: [HsTFieldInfo]
+  , hstfsDataFields :: [HsTFieldInfo]
+  , hstfsFirstField :: HsTFieldInfo
+  , hstfsRemaining :: [HsTFieldInfo]
+  } deriving (Show, Eq, Data, Typeable)
 
 data HsTFieldInfo = HsTDataField
-                    { hstdfName :: T.Text
-                    , hstdfCtor :: T.Text
-                    , hstdfIndex :: Integer
+                    { hstfName :: T.Text
+                    , hstfCtor :: T.Text
+                    , hstfIndex :: Integer
                     , hstdfRefCtor :: T.Text }
                   | HsTEmptyField
-                    { hstefName :: T.Text
-                    , hstefCtor :: T.Text
-                    , hstefIndex :: Integer }
+                    { hstfName :: T.Text
+                    , hstfCtor :: T.Text
+                    , hstfIndex :: Integer }
   deriving (Show, Eq, Data, Typeable)
 
 data HsTypeCtx
@@ -110,7 +112,7 @@ data HsTypeCtx
   | HsTArray { hstDetail :: HsTypeInfo, hstArrayRefCtor :: T.Text, hstArrayLen :: Integer }
   | HsTVector { hstDetail :: HsTypeInfo, hstVectorRefCtor :: T.Text, hstVectorMaxLen :: Integer, hstVectorLenWidth :: Integer  }
   | HsTRecord { hstDetail :: HsTypeInfo, hstRecordFields :: HsTFieldSet }
-  | HsTCombination { hstDetail :: HsTypeInfo, hstCombinationFields :: HsTFieldSet, hstCombinationFlagsWidth :: Integer }
+  | HsTCombination { hstDetail :: HsTypeInfo, hstCombinationFields :: HsTFieldSet, hstCombinationFlagsWidth :: Integer, hstCombinationMaxIndex :: Integer }
   | HsTUnion { hstDetail :: HsTypeInfo, hstUnionFields :: HsTFieldSet, hstUnionTagWidth :: Integer }
   deriving (Show, Eq, Data, Typeable)
 
@@ -167,12 +169,13 @@ mkHsType t =
                    , hstVectorLenWidth = C.builtInSize lr }
     Spec.Record { Spec.unRecord = (C.TRecord { C.recordFields = C.Fields rfs }) }
       -> HsTRecord { hstDetail = mkTypeInfo "record"
-                   , hstRecordFields = mkFieldSet $ filterEmpties rfs }
+                   , hstRecordFields = mkFieldSet rfs }
     Spec.Combination { Spec.unCombination = (C.TCombination { C.combinationFields = C.Fields cfs })
                      , Spec.flagsRepr = (Spec.FlagsRepr fr) }
       -> HsTCombination { hstDetail = mkTypeInfo "combination"
                         , hstCombinationFields = mkFieldSet cfs
-                        , hstCombinationFlagsWidth = C.builtInSize fr }
+                        , hstCombinationFlagsWidth = C.builtInSize fr
+                        , hstCombinationMaxIndex = fromIntegral (length cfs) - 1 }
     Spec.Union { Spec.unUnion = (C.TUnion { C.unionFields = C.Fields ufs })
                , Spec.tagRepr = (Spec.TagRepr tr) }
       -> HsTUnion { hstDetail = mkTypeInfo "union"
@@ -189,22 +192,29 @@ mkHsType t =
         , hstNamePrefix = downFirst $ nameToHsName $ Spec.typeName t
         }
 
-    downFirst txt = (toLower $ T.head txt) `T.cons` (T.tail txt)
+    downFirst txt = toLower (T.head txt) `T.cons` T.tail txt
 
     boolHack p = (mkTypeInfo p) { hstName = "c_bool" }
 
-    filterEmpties fs = filter isDF fs
+    filterEmpties = filter isDF
       where
-        isDF (C.Field {}) = True
+        isDF (HsTDataField {}) = True
         isDF _ = False
 
-    mkFieldSet (f:fs) = HsTFieldSet (mkFieldInfo f) (map mkFieldInfo fs)
-    mkFieldSet _ = error "Cauterize.GHC7.mkFieldSet: Must have at least one field."
+    mkFieldSet [] = error "Must have at least one field"
+    mkFieldSet fs = HsTFieldSet { hstfsAllFields = fs'
+                                , hstfsDataFields = dfs
+                                , hstfsFirstField = f
+                                , hstfsRemaining = frest
+                                }
+      where
+        fs'@(f:frest) = map mkFieldInfo fs
+        dfs = filterEmpties fs'
 
     mkFieldInfo C.Field { C.fName = n, C.fRef = r, C.fIndex = i } =
-      HsTDataField { hstdfName = n, hstdfCtor = nameToHsName n, hstdfRefCtor = nameToHsName r, hstdfIndex = i }
+      HsTDataField { hstfName = n, hstfCtor = nameToHsName n, hstdfRefCtor = nameToHsName r, hstfIndex = i }
     mkFieldInfo C.EmptyField { C.fName = n, C.fIndex = i } =
-      HsTEmptyField { hstefName = n, hstefCtor = nameToHsName n, hstefIndex = i }
+      HsTEmptyField { hstfName = n, hstfCtor = nameToHsName n, hstfIndex = i }
 
     biConv C.BIu8  = HsU8
     biConv C.BIu16 = HsU16

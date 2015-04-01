@@ -1,31 +1,35 @@
 {{#HsTRecord}}
 {{#hstDetail}}
 data {{hstConstructor}} = {{hstConstructor}}
-{{#HsTFieldSet}}
+{{#hstRecordFields}}
 {{#hstfsFirstField}}
-  { {{hstNamePrefix}}{{hstdfCtor}} :: {{hstdfRefCtor}}
+  { {{hstNamePrefix}}{{hstfCtor}} :: {{hstdfRefCtor}}
 {{/hstfsFirstField}}
 {{#hstfsRemaining}}
-  , {{hstNamePrefix}}{{hstdfCtor}} :: {{hstdfRefCtor}}
+  , {{hstNamePrefix}}{{hstfCtor}} :: {{hstdfRefCtor}}
 {{/hstfsRemaining}}
   } deriving (Show, Ord, Eq)
-{{/HsTFieldSet}}
-{-
+{{/hstRecordFields}}
 instance CautType {{hstConstructor}} where; cautName _ = "{{hstName}}"
 instance CautRecord {{hstConstructor}} where
 instance Serializable CautResult {{hstConstructor}} where
   serialize r = traceRecord $ do
-    genFieldSerialize (TRecordField "field_bool") (aRecordFieldBool r)
-    genFieldSerialize (TRecordField "field_u8") (aRecordFieldU8 r)
+{{#hstRecordFields}}
+{{#hstfsAllFields}}
+    genFieldSerialize (TRecordField "{{hstfName}}") ({{hstNamePrefix}}{{hstfCtor}} r)
+{{/hstfsAllFields}}
+{{/hstRecordFields}}
     where
       traceRecord = withTrace (TRecord $ cautName r)
   deserialize = traceRecord $ do
-    a0 <- genFieldDeserialize (TRecordField "field_bool")
-    a1 <- genFieldDeserialize (TRecordField "field_u8")
-    return $ ARecord a0 a1
+{{#hstRecordFields}}
+{{#hstfsAllFields}}
+    {{hstNamePrefix}}{{hstfCtor}}Arg <- genFieldDeserialize (TRecordField "{{hstfName}}")
+{{/hstfsAllFields}}
+{{/hstRecordFields}}
+    return $ {{hstConstructor}} {{#hstRecordFields}}{{#hstfsAllFields}}{{hstNamePrefix}}{{hstfCtor}}Arg {{/hstfsAllFields}}{{/hstRecordFields}}
     where
-      u = undefined :: ARecord
+      u = undefined :: {{hstConstructor}}
       traceRecord = withTrace (TRecord $ cautName u)
--}
 {{/hstDetail}}
 {{/HsTRecord}}
