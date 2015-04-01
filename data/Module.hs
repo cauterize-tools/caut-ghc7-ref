@@ -1,5 +1,5 @@
-{-# LANGUAGe MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, OverloadedStrings #-}
-module Cauterize.Generated.{{hscLibName}} (
+{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, OverloadedStrings #-}
+module Cauterize.Generated.{{hscLibName}}.Types (
 {{#hscTypes}}
 {{#hstDetail}}
   {{hstConstructor}}(..),

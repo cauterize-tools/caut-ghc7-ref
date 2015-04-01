@@ -36,24 +36,28 @@ caut2hs (CautGHC7Opts { specFile = specPath, metaFile = metaPath, outputDirector
 
 generateOutput :: Spec.Spec -> Meta.Meta -> FilePath -> IO ()
 generateOutput spec meta out = do
-  createPath [out, "src", "Cauterize", "Generated"]
+  createPath [out, "src", "Cauterize", "Generated", hsName']
   createPath [out, "crucible_client"]
   renderFiles
   where
     specName = Spec.specName spec
     hsName = nameToHsName specName
+    hsName' = T.unpack hsName
 
     renderFiles = do
       cf_tmpl <- getDataFileName "cabal_file.cabal.tmpl"
       mod_tmpl <- getDataFileName "Module.hs"
+      met_tmpl <- getDataFileName "Meta.hs"
       tc_tmpl <- getDataFileName "test_client.hs.tmpl"
 
       let cabalPath = T.unpack specName ++ ".cabal"
-      let modPath = foldl combine "" ["src", "Cauterize", "Generated", T.unpack hsName ++ ".hs"]
+      let modPath = foldl combine "" ["src", "Cauterize", "Generated", hsName', "Types.hs"]
+      let metPath = foldl combine "" ["src", "Cauterize", "Generated", hsName', "Meta.hs"]
       let testPath = foldl combine "" ["crucible_client", "Main.hs"]
 
       renderTo spec meta cf_tmpl (out `combine` cabalPath)
       renderTo spec meta mod_tmpl (out `combine` modPath)
+      renderTo spec meta met_tmpl (out `combine` metPath)
       renderTo spec meta tc_tmpl (out `combine` testPath)
 
 nameToHsName :: T.Text -> T.Text
@@ -64,6 +68,8 @@ data HsCtx = HsCtx
   , hscCabalName :: T.Text
   , hscMeta :: HsMetaCtx
   , hscTypes :: [HsTypeCtx]
+  , hscFirstType :: HsTypeCtx
+  , hscRestTypes :: [HsTypeCtx]
   } deriving (Show, Eq, Data, Typeable)
 
 data HsMetaCtx = HsMetaCtx
@@ -143,7 +149,14 @@ mkHsCtx spec meta = HsCtx
         , hsmTypeWidth = Meta.metaTypeLength meta
         }
   , hscTypes = map mkHsType (Spec.specTypes spec)
+  , hscFirstType = ft
+  , hscRestTypes = rt
   }
+  where
+    ts = map mkHsType (Spec.specTypes spec)
+    (ft:rt) = if [] == ts
+                then error "Cauterize.GHC7.mkHsCtx: Must have at least one type."
+                else ts
 
 mkHsType :: Spec.SpType -> HsTypeCtx
 mkHsType t =
