@@ -1,6 +1,6 @@
 {{#HsTSynonym}}
 {{#hstDetail}}
-data {{hstConstructor}} = {{hstConstructor}} {{hstSynnedCtor}} deriving (Show, Eq)
+data {{hstConstructor}} = {{hstConstructor}} {{hstSynnedCtor}} deriving (Show, Eq, Ord)
 instance CautType {{hstConstructor}} where; cautName _ = "{{hstName}}"
 instance CautSynonym {{hstConstructor}} where
 instance Serializable CautResult {{hstConstructor}} where

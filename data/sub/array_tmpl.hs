@@ -1,6 +1,6 @@
 {{#HsTArray}}
 {{#hstDetail}}
-data {{hstConstructor}} = {{hstConstructor}} (Vector {{hstArrayRefCtor}}) deriving (Show, Eq)
+data {{hstConstructor}} = {{hstConstructor}} (Vector {{hstArrayRefCtor}}) deriving (Show, Eq, Ord)
 instance CautType {{hstConstructor}} where; cautName _ = "{{hstName}}"
 instance CautArray {{hstConstructor}} where; arrayLength _ = {{hstArrayLen}}
 instance Serializable CautResult {{hstConstructor}} where
