@@ -100,24 +100,21 @@ traceSerializeBI m t v = withTrace t (liftPut . m $ v)
 traceDeserializeBI :: Get b -> Trace -> (b -> a) -> Deserialize CautResult a
 traceDeserializeBI m t c = withTrace t $ liftGet (liftM c m)
 
-traceBI :: CautType a => a -> Trace
-traceBI t = TBuiltIn (cautName t)
-
 tU8, tU16, tU32, tU64 :: Trace
-tU8 = traceBI (undefined :: U8)
-tU16 = traceBI (undefined :: U16)
-tU32 = traceBI (undefined :: U32)
-tU64 = traceBI (undefined :: U64)
+tU8 = TBuiltIn "u8"
+tU16 = TBuiltIn "u16"
+tU32 = TBuiltIn "u32"
+tU64 = TBuiltIn "u64"
 
 tS8, tS16, tS32, tS64 :: Trace
-tS8 = traceBI (undefined :: S8)
-tS16 = traceBI (undefined :: S16)
-tS32 = traceBI (undefined :: S32)
-tS64 = traceBI (undefined :: S64)
+tS8 = TBuiltIn "s8"
+tS16 = TBuiltIn "s16"
+tS32 = TBuiltIn "s32"
+tS64 = TBuiltIn "s64"
 
 tF32, tF64 :: Trace
-tF32 = traceBI (undefined :: F32)
-tF64 = traceBI (undefined :: F64)
+tF32 = TBuiltIn "f32"
+tF64 = TBuiltIn "f64"
 
 tCBool :: Trace
-tCBool = traceBI (undefined :: CBool)
+tCBool = TBuiltIn "bool"

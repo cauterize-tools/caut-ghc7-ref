@@ -35,6 +35,7 @@ module Cauterize.GHC7.Support.Prototypes
   , fieldPresent
   , isFlagSet
 
+-- exports for convenience
   , V.Vector
   , Serializable(..)
   , ap

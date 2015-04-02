@@ -18,6 +18,7 @@ cabal-version:       >= 1.10
 data-dir:   data
 data-files: cabal_file.cabal.tmpl,
             Module.hs,
+            BuiltIn.hs,
             Meta.hs,
             test_client.hs.tmpl,
             sub/*.hs
@@ -59,11 +60,10 @@ library
                        bytestring,
                        text,
                        cereal,
+                       cereal-plus,
                        mmorph,
-                       vector,
-                       cereal-plus
-  exposed-modules:     Cauterize.GHC7.Support.BuiltIn,
-                       Cauterize.GHC7.Support.Cauterize,
+                       vector
+  exposed-modules:     Cauterize.GHC7.Support.Cauterize,
                        Cauterize.GHC7.Support.Prototypes,
                        Cauterize.GHC7.Support.Result,
                        Paths_caut_ghc7_ref
