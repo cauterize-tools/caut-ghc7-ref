@@ -7,7 +7,6 @@ import Cauterize.GHC7.Options
 
 import Control.Monad
 import Data.Data
-import Data.Word
 import Data.Char (toLower)
 import System.Directory
 import System.FilePath.Posix
@@ -15,7 +14,6 @@ import Text.Hastache
 import Text.Hastache.Context
 import qualified Cauterize.Common.Types as C
 import qualified Cauterize.FormHash as H
-import qualified Cauterize.Meta as Meta
 import qualified Cauterize.Specification as Spec
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
@@ -23,19 +21,15 @@ import qualified Data.Text.Lazy.IO as T
 import Paths_caut_ghc7_ref
 
 caut2hs :: CautGHC7Opts -> IO ()
-caut2hs (CautGHC7Opts { specFile = specPath, metaFile = metaPath, outputDirectory = outPath }) = createGuard outPath $ do
+caut2hs (CautGHC7Opts { specFile = specPath, outputDirectory = outPath }) = createGuard outPath $ do
   spec <- Spec.parseFile specPath
-  meta <- Meta.parseFile metaPath
 
   case spec of
     Left es -> error $ show es
-    Right s' ->
-      case meta of
-        Left em -> error $ show em
-        Right m' -> generateOutput s' m' outPath
+    Right s' -> generateOutput s' outPath
 
-generateOutput :: Spec.Spec -> Meta.Meta -> FilePath -> IO ()
-generateOutput spec meta out = do
+generateOutput :: Spec.Spec -> FilePath -> IO ()
+generateOutput spec out = do
   createPath [out, "src", "Cauterize", "Generated", hsName']
   createPath [out, "crucible_client"]
   renderFiles
@@ -48,17 +42,20 @@ generateOutput spec meta out = do
       cf_tmpl <- getDataFileName "cabal_file.cabal.tmpl"
       mod_tmpl <- getDataFileName "Module.hs"
       met_tmpl <- getDataFileName "Meta.hs"
+      bi_tmpl <- getDataFileName "BuiltIn.hs"
       tc_tmpl <- getDataFileName "test_client.hs.tmpl"
 
       let cabalPath = T.unpack specName ++ ".cabal"
       let modPath = foldl combine "" ["src", "Cauterize", "Generated", hsName', "Types.hs"]
       let metPath = foldl combine "" ["src", "Cauterize", "Generated", hsName', "Meta.hs"]
+      let biPath = foldl combine "" ["src", "Cauterize", "Generated", hsName', "BuiltIn.hs"]
       let testPath = foldl combine "" ["crucible_client", "Main.hs"]
 
-      renderTo spec meta cf_tmpl (out `combine` cabalPath)
-      renderTo spec meta mod_tmpl (out `combine` modPath)
-      renderTo spec meta met_tmpl (out `combine` metPath)
-      renderTo spec meta tc_tmpl (out `combine` testPath)
+      renderTo spec cf_tmpl (out `combine` cabalPath)
+      renderTo spec mod_tmpl (out `combine` modPath)
+      renderTo spec met_tmpl (out `combine` metPath)
+      renderTo spec tc_tmpl (out `combine` testPath)
+      renderTo spec bi_tmpl (out `combine` biPath)
 
 nameToHsName :: T.Text -> T.Text
 nameToHsName n = T.concat $ map T.toTitle $ T.split (== '_') n
@@ -82,7 +79,7 @@ data HsTypeInfo = HsTypeInfo
   , hstConstructor :: T.Text
   , hstNamePrefix :: T.Text
   , hstName :: T.Text
-  , hstHash :: [Word8]
+  , hstHashListStr :: T.Text
   , hstSize :: HsTSizeCtx
   } deriving (Show, Eq, Data, Typeable)
 
@@ -126,12 +123,12 @@ data HsTSizeCtx = HsTSizeCtx { hstMinSize :: Integer, hstMaxSize :: Integer }
   deriving (Show, Eq, Data, Typeable)
 
 
-renderTo :: Spec.Spec -> Meta.Meta -> FilePath -> FilePath -> IO ()
-renderTo spec meta templatePath destPath = do
+renderTo :: Spec.Spec -> FilePath -> FilePath -> IO ()
+renderTo spec templatePath destPath = do
   template <- T.readFile templatePath
   cfg <- mkCfg
   rendered <- hastacheStr cfg (encodeStr $ T.unpack template)
-                              (mkGenericContext $ mkHsCtx spec meta)
+                              (mkGenericContext $ mkHsCtx spec )
   T.writeFile destPath rendered
   where
     mkCfg = do
@@ -139,14 +136,14 @@ renderTo spec meta templatePath destPath = do
       return $ defaultConfig { muEscapeFunc = id
                              , muTemplateFileDir = Just tpath } :: IO (MuConfig IO)
 
-mkHsCtx :: Spec.Spec -> Meta.Meta -> HsCtx
-mkHsCtx spec meta = HsCtx
+mkHsCtx :: Spec.Spec -> HsCtx
+mkHsCtx spec = HsCtx
   { hscLibName = nameToHsName $ Spec.specName spec
   , hscCabalName = Spec.specName spec
   , hscMeta =
       HsMetaCtx
-        { hsmLengthWidth = Meta.metaDataLength meta
-        , hsmTypeWidth = Meta.metaTypeLength meta
+        { hsmLengthWidth = Spec.unLengthTagWidth . Spec.specLengthTagWidth $ spec
+        , hsmTypeWidth = Spec.unTypeTagWidth . Spec.specTypeTagWidth $ spec
         }
   , hscTypes = map mkHsType (Spec.specTypes spec)
   , hscFirstType = ft
@@ -198,7 +195,7 @@ mkHsType t =
     mkTypeInfo p =
       HsTypeInfo
         { hstName = Spec.typeName t
-        , hstHash = H.hashToBytes . Spec.spHash $ t
+        , hstHashListStr = T.pack . show $ H.hashToBytes . Spec.spHash $ t
         , hstSize = HsTSizeCtx { hstMinSize = Spec.minSize t, hstMaxSize = Spec.maxSize t }
         , hstPrototype = p
         , hstConstructor = nameToHsName $ Spec.typeName t

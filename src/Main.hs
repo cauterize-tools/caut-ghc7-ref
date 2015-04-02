@@ -21,11 +21,6 @@ optParser = CautGHC7Opts
    <> help "Cauterize specification file"
     )
   <*> strOption
-    ( long "meta"
-   <> metavar "META_PATH"
-   <> help "Cauterize meta file"
-    )
-  <*> strOption
     ( long "output"
    <> metavar "OUTPUT_PATH"
    <> help "Directory to save output files"
