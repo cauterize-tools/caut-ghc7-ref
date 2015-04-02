@@ -7,13 +7,13 @@ module Cauterize.Generated.{{hscLibName}}.Types (
 {{/hscTypes}}
   ) where
 
-import Cauterize.GHC7.Support.BuiltIn
+import Cauterize.Generated.{{hscLibName}}.BuiltIn
+
 import Cauterize.GHC7.Support.Prototypes
 import Cauterize.GHC7.Support.Result
 
 {{#hscTypes}}
 {{> array_tmpl.hs}}
-{{> builtin_tmpl.hs}}
 {{> combination_tmpl.hs}}
 {{> record_tmpl.hs}}
 {{> synonym_tmpl.hs}}

@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, MultiParamTypeClasses, OverloadedStrings #-}
-module Cauterize.GHC7.Support.BuiltIn
+module Cauterize.Generated.{{hscLibName}}.BuiltIn
   ( U8(..) , U16(..) , U32(..) , U64(..)
   , S8(..) , S16(..) , S32(..) , S64(..)
   , F32(..), F64(..)
@@ -34,21 +34,6 @@ newtype F32 = F32 { unF32 :: Float } deriving (Show, Eq, Ord)
 newtype F64 = F64 { unF64 :: Double } deriving (Show, Eq, Ord)
 
 newtype CBool = CBool { unCBool :: Bool } deriving (Show, Eq, Ord)
-
-instance CautType U8  where; cautName _ = "u8"
-instance CautType U16 where; cautName _ = "u16"
-instance CautType U32 where; cautName _ = "u32"
-instance CautType U64 where; cautName _ = "u64"
-
-instance CautType S8  where; cautName _ = "s8"
-instance CautType S16 where; cautName _ = "s16"
-instance CautType S32 where; cautName _ = "s32"
-instance CautType S64 where; cautName _ = "s64"
-
-instance CautType F32 where; cautName _ = "f32"
-instance CautType F64 where; cautName _ = "f64"
-
-instance CautType CBool where; cautName _ = "bool"
 
 instance Serializable CautResult U8  where
   serialize (U8 w) = traceSerializeBI putWord8 tU8 w
@@ -92,6 +77,18 @@ instance Serializable CautResult CBool where
        1 -> return $ CBool True
        0 -> return $ CBool False
        x -> failWithTrace ("Invalid boolean value: " `T.append` tshow x)
+
+{{#hscTypes}}
+{{#HsTBuiltIn}}
+{{#hstDetail}}
+instance CautType {{hstConstructor}} where
+  cautName _ = "{{hstName}}"
+  cautHash _ = {{hstHashListStr}}
+  cautSize _ = ({{hstSize.hstMinSize}},{{hstSize.hstMaxSize}})
+{{/hstDetail}}
+
+{{/HsTBuiltIn}}
+{{/hscTypes}}
 
 -- Make a showable into Text
 tshow :: Show a => a -> T.Text

@@ -10,7 +10,10 @@ data {{hstConstructor}} = {{hstConstructor}}
 {{/hstfsRemaining}}
   } deriving (Show, Ord, Eq)
 {{/hstRecordFields}}
-instance CautType {{hstConstructor}} where; cautName _ = "{{hstName}}"
+instance CautType {{hstConstructor}} where
+  cautName _ = "{{hstName}}"
+  cautHash _ = {{hstHashListStr}}
+  cautSize _ = ({{hstSize.hstMinSize}},{{hstSize.hstMaxSize}})
 instance CautRecord {{hstConstructor}} where
 instance Serializable CautResult {{hstConstructor}} where
   serialize r = traceRecord $ do

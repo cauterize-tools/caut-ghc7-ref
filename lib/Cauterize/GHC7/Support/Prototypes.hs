@@ -10,6 +10,10 @@ module Cauterize.GHC7.Support.Prototypes
   , CautCombination(..)
   , CautUnion(..)
 
+  , Hash
+  , MinSize
+  , MaxSize
+
   , genSynonymSerialize
   , genSynonymDeserialize
   , genArraySerialize
@@ -52,8 +56,8 @@ import qualified Data.Vector as V
 
 class CautType a where
   cautName :: a -> T.Text
-  -- cautHash :: a -> Hash
-  -- cautSize :: a -> (MinSize, MaxSize)
+  cautHash :: a -> Hash
+  cautSize :: a -> (MinSize, MaxSize)
 
   encode :: Serializable CautResult a => a -> Either CautError B.ByteString
   encode a = let CautResult r = runLazy $ serialize a
@@ -87,6 +91,10 @@ class CautType a => CautCombination a where
 
 class CautType a => CautUnion a where
   unionTagWidth :: a -> Integer
+
+type Hash = [Word8]
+type MinSize = Integer
+type MaxSize = Integer
 
 genSynonymSerialize :: (CautSynonym a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
 genSynonymSerialize v t = withTrace (TSynonym $ cautName t) (serialize v)

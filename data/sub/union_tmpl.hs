@@ -20,7 +20,10 @@ data {{hstConstructor}}
 {{/hstfsRemaining}}
 {{/hstUnionFields}}
   deriving (Show, Eq, Ord)
-instance CautType {{hstConstructor}} where; cautName _ = "{{hstName}}"
+instance CautType {{hstConstructor}} where
+  cautName _ = "{{hstName}}"
+  cautHash _ = {{hstHashListStr}}
+  cautSize _ = ({{hstSize.hstMinSize}},{{hstSize.hstMaxSize}})
 instance CautUnion {{hstConstructor}} where; unionTagWidth _ = {{hstUnionTagWidth}}
 instance Serializable CautResult {{hstConstructor}} where
   serialize r = traceUnion $

@@ -20,7 +20,10 @@ data {{hstConstructor}} = {{hstConstructor}}
 {{/hstfsRemaining}}
 {{/hstCombinationFields}}
   } deriving (Show, Ord, Eq)
-instance CautType {{hstConstructor}} where; cautName _ = "{{hstName}}"
+instance CautType {{hstConstructor}} where
+  cautName _ = "{{hstName}}"
+  cautHash _ = {{hstHashListStr}}
+  cautSize _ = ({{hstSize.hstMinSize}},{{hstSize.hstMaxSize}})
 instance CautCombination {{hstConstructor}} where; combinationTagWidth _ = {{hstCombinationFlagsWidth}}; combinationMaxIndex _ = {{hstCombinationMaxIndex}}
 instance Serializable CautResult {{hstConstructor}} where
   serialize r = traceComb $ do
