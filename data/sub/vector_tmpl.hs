@@ -1,6 +1,6 @@
 {{#HsTVector}}
 {{#hstDetail}}
-data {{hstConstructor}} = {{hstConstructor}} (Vector CBool) deriving (Show, Eq, Ord)
+data {{hstConstructor}} = {{hstConstructor}} (Vector {{hstVectorRefCtor}}) deriving (Show, Eq, Ord)
 instance CautType {{hstConstructor}} where
   cautName _ = "{{hstName}}"
   cautHash _ = {{hstHashListStr}}
