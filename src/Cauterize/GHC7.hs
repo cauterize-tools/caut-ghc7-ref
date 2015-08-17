@@ -44,18 +44,21 @@ generateOutput spec out = do
       met_tmpl <- getDataFileName "Meta.hs"
       bi_tmpl <- getDataFileName "BuiltIn.hs"
       tc_tmpl <- getDataFileName "test_client.hs.tmpl"
+      sy_tmpl <- getDataFileName "stack.yaml"
 
       let cabalPath = T.unpack specName ++ ".cabal"
       let modPath = foldl combine "" ["src", "Cauterize", "Generated", hsName', "Types.hs"]
       let metPath = foldl combine "" ["src", "Cauterize", "Generated", hsName', "Meta.hs"]
       let biPath = foldl combine "" ["src", "Cauterize", "Generated", hsName', "BuiltIn.hs"]
       let testPath = foldl combine "" ["crucible_client", "Main.hs"]
+      let syPath = foldl combine "" ["stack.yaml"]
 
       renderTo spec cf_tmpl (out `combine` cabalPath)
       renderTo spec mod_tmpl (out `combine` modPath)
       renderTo spec met_tmpl (out `combine` metPath)
       renderTo spec tc_tmpl (out `combine` testPath)
       renderTo spec bi_tmpl (out `combine` biPath)
+      renderTo spec sy_tmpl (out `combine` syPath)
 
 nameToHsName :: T.Text -> T.Text
 nameToHsName n = T.concat $ map T.toTitle $ T.split (== '_') n

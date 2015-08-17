@@ -1,0 +1,19 @@
+flags: {}
+packages:
+- '.'
+- location:
+    git: https://github.com/cauterize-tools/cauterize.git
+    commit: 3e6d850720ae01b18feabf4814b4c00574c946ba
+- location:
+    git: https://github.com/aisamanra/s-cargot.git
+    commit: 1628a7c2913fc5e72ab6ea9a813762bf86d47d49
+- location:
+    git: https://github.com/cauterize-tools/crucible.git
+    commit: 9a847bde678c52f76ad49fee821740c7d66a9d65
+- location:
+    git: https://github.com/cauterize-tools/caut-ghc7-ref.git
+    commit: 9fdf2df0fe3409a90f109e2518bfd5f530aa5a65
+extra-deps:
+  - hastache-0.6.0
+  - cereal-plus-0.4.0
+resolver: lts-2.21
