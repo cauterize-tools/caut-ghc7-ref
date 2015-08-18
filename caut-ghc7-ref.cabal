@@ -38,6 +38,9 @@ executable caut-ghc7-ref
                        filepath
   hs-source-dirs:      src
   default-language:    Haskell2010
+  other-modules:       Cauterize.GHC7,
+                       Cauterize.GHC7.Options,
+                       Paths_caut_ghc7_ref
 
 test-suite test
   type:                exitcode-stdio-1.0

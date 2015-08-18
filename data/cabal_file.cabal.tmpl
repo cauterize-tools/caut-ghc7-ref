@@ -15,7 +15,8 @@ library
   hs-source-dirs:      src
   default-language:    Haskell2010
   exposed-modules:     Cauterize.Generated.{{hscLibName}}.Types,
-                       Cauterize.Generated.{{hscLibName}}.Meta 
+                       Cauterize.Generated.{{hscLibName}}.Meta
+  other-modules:       Cauterize.Generated.{{hscLibName}}.BuiltIn
   build-depends:       base < 5,
                        caut-ghc7-ref,
                        cereal,
