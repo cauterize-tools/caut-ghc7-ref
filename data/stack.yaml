@@ -12,7 +12,7 @@ packages:
     commit: 9a847bde678c52f76ad49fee821740c7d66a9d65
 - location:
     git: https://github.com/cauterize-tools/caut-ghc7-ref.git
-    commit: 9fdf2df0fe3409a90f109e2518bfd5f530aa5a65
+    commit: 2118d5e3ceefe96a0bad7bc387760fbe330255dc
 extra-deps:
   - hastache-0.6.0
   - cereal-plus-0.4.0
