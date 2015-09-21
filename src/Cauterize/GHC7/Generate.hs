@@ -50,7 +50,7 @@ generateOutput spec out = do
   cabalDir <- createPath [out]
   clientDir <- createPath [out, "crucible"]
 
-  let libPath = libDir `combine` hsName
+  let libPath = libDir `combine` (hsName ++ ".hs")
   let cabalPath = cabalDir `combine` (specName' ++ ".cabal")
   let clientPath = clientDir `combine` "Main.hs"
 
@@ -108,27 +108,34 @@ clientTempl = unindent [i|
     main = return ()
   |]
 
-libTempl libname spec = unindent [i|
-    module Cauterize.Generated.#{libname}.Types where
-
-    -- synonym
-    -- range
-    -- array
-    -- vector
-    -- enumeration
-    -- record
-    -- combination
-    -- union
-  |]
+-- synonym
+-- range
+-- array
+-- vector
+-- enumeration
+-- record
+-- combination
+-- union
+libTempl libname spec = unlines parts
+  where
+    mod = [i|module Cauterize.Generated.#{libname}.Types where\n|]
+    types = map libTypeTempl (Spec.specTypes spec)
+    parts = mod : types
 
 libTypeTempl :: Spec.Type -> String
-libTypeTempl t =
-  case Spec.typeDesc t of
-    Spec.Synonym { Spec.synonymRef = r } ->
-      synonymTempl tn r
-    _ -> undefined
+libTypeTempl t =  unlines [declinst, transinst, typeinst]
   where
-   tn = nameToHsName $ CT.unIdentifier (Spec.typeName t)
+   tn = Spec.typeName t
+   tCtor = nameToHsName $ CT.unIdentifier tn
+   sz = Spec.typeSize t
+   transinst = transcodableTempl tCtor tn (CT.sizeMin sz) (CT.sizeMax sz)
+   typeinst = typeTempl tCtor (Spec.typeFingerprint t)
+   declinst =
+     case Spec.typeDesc t of
+       Spec.Synonym { Spec.synonymRef = r } ->
+         synonymTempl tCtor r
+       _ -> "{- UNSUPPORTED TYPE -}"
+
   {-
     S.Range { S.rangeOffset = o, S.rangeLength = l, S.rangeTag = rt, S.rangePrim = rp } ->
       rangeEncoderBody o l rt rp
@@ -148,14 +155,12 @@ libTypeTempl t =
 
 transcodableTempl ctor n szMin szMax = unindent [i|
   instance CautTranscodable #{ctor} where
-    cautName = const "#{n}
-    cautSize = const (#{szMin},#{szMax})
-  |]
+    cautName = const "#{CT.unIdentifier n}"
+    cautSize = const (#{szMin},#{szMax})|]
 
 typeTempl ctor hash = unindent [i|
   instance CautType #{ctor} where
-    cautHash = const #{hashToStr hash}
-  |]
+    cautHash = const #{hashToStr hash}|]
   where
     hashToStr h = show (H.hashToBytes h)
 
@@ -165,7 +170,6 @@ synonymTempl tCtor r = unindent [i|
   instance CautSynonym #{tCtor} where
   instance Serializable CautResult #{tCtor} where
     serialize t@(#{tCtor} a) = genSynonymSerialize a t
-    deserialize = genSynonymDeserialize (undefined :: #{tCtor}) #{tCtor}
-  |]
+    deserialize = genSynonymDeserialize (undefined :: #{tCtor}) #{tCtor}|]
   where
     rCtor = identToHsName r
