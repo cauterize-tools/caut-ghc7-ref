@@ -2,9 +2,11 @@
 module Cauterize.GHC7.Support.Prototypes
   ( CautType(..)
 
-  , CautSynonym
+  , CautSynonym(..)
+  , CautRange(..)
   , CautArray(..)
   , CautVector(..)
+  , CautEnumeration(..)
   , CautResult(..)
   , CautRecord
   , CautCombination(..)
@@ -16,10 +18,14 @@ module Cauterize.GHC7.Support.Prototypes
 
   , genSynonymSerialize
   , genSynonymDeserialize
+  , genRangeSerialize
+  , genRangeDeserialize
   , genArraySerialize
   , genArrayDeserialize
   , genVectorSerialize
   , genVectorDeserialize
+  , genEnumerationSerialize
+  , genEnumerationDeserialize
   , genFieldSerialize
   , genFieldDeserialize
   , genCombFieldSerialize
@@ -55,9 +61,8 @@ import qualified Data.ByteString.Lazy as B
 import qualified Data.Text as T
 import qualified Data.Vector as V
 
-class CautType a where
+class CautTranscodable a where
   cautName :: a -> T.Text
-  cautHash :: a -> Hash
   cautSize :: a -> (MinSize, MaxSize)
 
   encode :: Serializable CautResult a => a -> Either CautError B.ByteString
@@ -75,33 +80,70 @@ class CautType a where
                   Right (Partial _) -> Left (CautError "Ran out of bytes." [])
                   Right (Done a bs) -> Right (a, B.fromStrict bs)
 
-class CautType a => CautSynonym a where
+class CautTranscodable a => CautType a where
+  cautHash :: a -> Hash
 
-class CautType a => CautArray a where
+-- The following are instances for each of the Cauterize prototypes
+class CautTranscodable a => CautSynonym a where
+
+class CautTranscodable a => CautRange a where
+  rangePrim :: a -> GHC7Prim
+  rangeTag :: a -> GHC7Tag
+  rangeOffset :: a -> Integer
+  rangeLength :: a -> Integer
+
+class CautTranscodable a => CautArray a where
   arrayLength :: a -> Integer
 
-class CautType a => CautVector a where
+class CautTranscodable a => CautVector a where
   vectorMaxLength :: a -> Integer
   vectorTagWidth :: a -> Integer
 
-class CautType a => CautRecord a where
+class CautTranscodable a => CautEnumeration a where
 
-class CautType a => CautCombination a where
+class CautTranscodable a => CautRecord a where
+
+class CautTranscodable a => CautCombination a where
   combinationTagWidth :: a -> Integer
   combinationMaxIndex :: a -> Integer
 
-class CautType a => CautUnion a where
+class CautTranscodable a => CautUnion a where
   unionTagWidth :: a -> Integer
 
 type Hash = [Word8]
 type MinSize = Integer
 type MaxSize = Integer
 
+data GHC7Prim = GHC7Word8
+              | GHC7Word16
+              | GHC7Word32
+              | GHC7Word64
+              | GHC7Int8
+              | GHC7Int16
+              | GHC7Int32
+              | GHC7Int64
+              | GHC7Bool
+              | GHC7Float32
+              | GHC7Float64
+  deriving (Show, Eq)
+
+data GHC7Tag  = GHC7Tag8
+              | GHC7Tag16
+              | GHC7Tag32
+              | GHC7Tag64
+  deriving (Show, Eq)
+
 genSynonymSerialize :: (CautSynonym a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
 genSynonymSerialize v t = withTrace (TSynonym $ cautName t) (serialize v)
 
 genSynonymDeserialize :: (CautSynonym a, Serializable CautResult b) => a -> (b -> a) -> Deserialize CautResult a
 genSynonymDeserialize t ctor = withTrace (TSynonym $ cautName t) (liftM ctor deserialize)
+
+genRangeSerialize :: (CautRange a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
+genRangeSerialize v t = undefined -- withTrace (TRange $ cautName t) (serialize v)
+
+genRangeDeserialize :: (CautRange a, Serializable CautResult b) => a -> (b -> a) -> Deserialize CautResult a
+genRangeDeserialize t ctor = undefined -- withTrace (TRange $ cautName t) (liftM ctor deserialize)
 
 genArraySerialize :: (CautArray a, Serializable CautResult b)
                   => V.Vector b -> a -> Serialize CautResult ()
@@ -148,6 +190,12 @@ genVectorDeserialize t ctor = withTrace (TVector . cautName $ t) $ do
     maxLen = fromIntegral $ vectorMaxLength t
     vTagWidth = fromIntegral $ vectorTagWidth t
     go ix = withTrace (TArrayIndex ix) deserialize
+
+genEnumerationSerialize :: (CautEnumeration a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
+genEnumerationSerialize v t = undefined -- withTrace (TEnumeration $ cautName t) (serialize v)
+
+genEnumerationDeserialize :: (CautEnumeration a, Serializable CautResult b) => a -> (b -> a) -> Deserialize CautResult a
+genEnumerationDeserialize t ctor = undefined -- withTrace (TEnumeration $ cautName t) (liftM ctor deserialize)
 
 -- genFieldSerialize :: Serializable CautResult a => T.Text -> a -> Serialize CautResult ()
 genFieldSerialize :: Serializable CautResult a => Trace -> a -> Serialize CautResult ()

@@ -2,7 +2,7 @@ module Main
   ( main
   ) where
 
-import Cauterize.GHC7
+import Cauterize.GHC7.Generate
 import Cauterize.GHC7.Options
 
 import Options.Applicative

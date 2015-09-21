@@ -22,12 +22,16 @@ data CautError
 data Trace = TBuiltIn T.Text
            | TSynonym T.Text
 
+           | TRange T.Text
+
            | TArray T.Text
            | TArrayIndex Int
 
            | TVector T.Text
            | TVectorTag
            | TVectorIndex Int
+
+           | TEnumeration T.Text
 
            | TRecord T.Text
            | TRecordField T.Text

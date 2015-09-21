@@ -15,15 +15,6 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >= 1.10
 
-data-dir:   data
-data-files: cabal_file.cabal.tmpl,
-            Module.hs,
-            BuiltIn.hs,
-            Meta.hs,
-            test_client.hs.tmpl,
-            stack.yaml,
-            sub/*.hs
-
 executable caut-ghc7-ref
   main-is:             Main.hs
   ghc-options:         -Wall -O2
@@ -35,12 +26,12 @@ executable caut-ghc7-ref
                        bytestring,
                        directory,
                        text,
-                       filepath
+                       filepath,
+                       interpolate
   hs-source-dirs:      src
   default-language:    Haskell2010
-  other-modules:       Cauterize.GHC7,
-                       Cauterize.GHC7.Options,
-                       Paths_caut_ghc7_ref
+  other-modules:       Cauterize.GHC7.Generate,
+                       Cauterize.GHC7.Options
 
 test-suite test
   type:                exitcode-stdio-1.0
