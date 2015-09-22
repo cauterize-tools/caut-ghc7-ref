@@ -7,6 +7,8 @@ import Cauterize.GHC7.Options
 import Control.Monad
 import Data.String.Interpolate.IsString
 import Data.String.Interpolate.Util
+import Data.Maybe
+import Data.List (intercalate)
 import System.Directory
 import System.FilePath.Posix
 import qualified Cauterize.Hash as H
@@ -136,21 +138,19 @@ libTypeTempl t =  unlines [declinst, transinst, typeinst]
          synonymTempl tCtor r
        Spec.Range { Spec.rangeOffset = ro, Spec.rangeLength = rl, Spec.rangeTag = rt, Spec.rangePrim = rp } ->
          rangeTempl tCtor ro rl rt rp
+       Spec.Array { Spec.arrayRef = r, Spec.arrayLength = l } ->
+         arrayTempl tCtor r l
+       Spec.Vector { Spec.vectorRef = r, Spec.vectorLength = l, Spec.vectorTag = t } ->
+         vectorTempl tCtor r l t
+       Spec.Enumeration { Spec.enumerationValues = ev, Spec.enumerationTag = et } ->
+         enumerationTempl tCtor ev et -- okay, tCtor here is actually a ctor prefix
+       Spec.Union { Spec.unionFields = fs, Spec.unionTag = t } ->
+         unionTempl tCtor t fs
+       Spec.Record { Spec.recordFields = rf } ->
+         recordTempl tCtor rf
   {-
-    S.Range { S.rangeOffset = o, S.rangeLength = l, S.rangeTag = rt, S.rangePrim = rp } ->
-      rangeEncoderBody o l rt rp
-    S.Array { S.arrayRef = r } ->
-      arrayEncoderBody (ident2str r)
-    S.Vector { S.vectorRef = r, S.vectorTag = lr } ->
-      vectorEncoderBody n (ident2str r) lr
-    S.Enumeration { S.enumerationValues = vs, S.enumerationTag = et } ->
-      enumerationEncoderBody n vs et
-    S.Record { S.recordFields = fs } ->
-      recordEncoderBody fs
     S.Combination { S.combinationFields = fs, S.combinationTag = fr } ->
       combinationEncoderBody n fs fr
-    S.Union { S.unionFields = fs, S.unionTag = tr } ->
-      unionEncoderBody n fs tr
   -}
 
 transcodableTempl ctor n szMin szMax = unindent [i|
@@ -174,11 +174,12 @@ synonymTempl tCtor r = unindent [i|
   where
     rCtor = identToHsName r
 
+rangeTempl :: String -> CT.Offset -> CT.Length -> CT.Tag -> CT.Prim -> String
 rangeTempl tCtor ro rl rt rp = unindent [i|
   data #{tCtor} = #{tCtor} #{rpCtor} deriving (Show, Eq, Ord)
   instance CautRange #{tCtor} where
     rangePrim = const #{rpCtor}
-    rangeTag = const #{rtCtor}
+    rangeTag = const #{rtWidth}
     rangeOffset = const #{ro}
     rangeLength = const #{rl}
   instance Serializable CautResult #{tCtor} where
@@ -186,8 +187,107 @@ rangeTempl tCtor ro rl rt rp = unindent [i|
     deserialize = genRangeDeserialize (undefined :: #{tCtor}) #{tCtor}|]
   where
     rpCtor = primToGhc7Prim rp
-    rtCtor = tagToGhc7Prim rt
+    rtWidth = tagToTagWidth rt
 
+arrayTempl tCtor r l = unindent [i|
+  data #{tCtor} = #{tCtor} (Vector #{rCtor}) deriving (Show, Eq, Ord)
+  instance CautArray #{tCtor} where
+    arrayLength = const #{l}
+  instance Serializable CautResult #{tCtor} where
+    serialize t@(#{tCtor} a) = genArraySerialize a t
+    deserialize = genArrayDeserialize (undefined :: #{tCtor}) #{tCtor}|]
+  where
+    rCtor = identToHsName r
+
+vectorTempl :: String -> CT.Identifier -> CT.Length -> CT.Tag -> String
+vectorTempl tCtor r l t = unindent [i|
+  data #{tCtor} = #{tCtor} (Vector #{rCtor}) deriving (Show, Eq, Ord)
+  instance CautVector #{tCtor} where
+    vectorMaxLength = const #{l}
+    vectorTagWidth = const #{tWidth}
+  instance Serializable CautResult #{tCtor} where
+    serialize t@(#{tCtor} a) = genVectorSerialize a t
+    deserialize = genVectorDeserialize (undefined :: #{tCtor}) #{tCtor}|]
+  where
+    rCtor = identToHsName r
+    tWidth = tagToTagWidth t
+
+enumerationTempl :: String -> [Spec.EnumVal] -> CT.Tag -> String
+enumerationTempl tCtor allevs@(ev:evs) et = intercalate "\n" parts
+  where
+    tWidth = tagToTagWidth et
+    maxIx = fromMaybe (error "INVALID SPEC: enumerations must have at least one value.")
+                      (maximumIndex allevs)
+    enumValToHsName = identToHsName . Spec.enumValName
+    parts =
+      [ dataType
+      , enumInst
+      , seriInst
+      ]
+    dataType =
+      let ty = "data " ++ tCtor
+          evCtor = enumValToHsName ev
+          evsCtors = map enumValToHsName evs
+          ctors = ("  = " ++ evCtor) : map ("  | " ++) evsCtors
+          deriv = "  deriving (Show, Ord, Eq)"
+      in intercalate "\n" ((ty:ctors) ++ [deriv])
+    enumInst = unindent [i|
+      instance CautEnumeration #{tCtor} where
+        enumerationTagWidth = const #{tWidth}
+        enumerationMaxIndex = const #{maxIx}|]
+    seriInst = unindent [i|
+      instance Serializable CautResult #{tCtor} where
+        serialize t@(#{tCtor} a) = genEnumerationSerialize a t
+        deserialize = genEnumerationDeserialize (undefined :: #{tCtor}) #{tCtor}|]
+
+recordTempl tCtor (f:fs) = intercalate "\n" parts
+  where
+    parts =
+      [ dataType
+      , recInst
+      , seriInst
+      ]
+    dataType =
+      let ty = "data " ++ tCtor
+          fCtor = fieldToHsType f
+          fsCtors = map fieldToHsType fs
+          ctors = ("  { " ++ fCtor) : map ("  , " ++ ) fsCtors
+          deriv = "  } deriving (Show, Ord, Eq)"
+      in intercalate "\n" ((ty:ctors) ++ [deriv])
+    recInst = unindent [i|
+      instance CautRecord #{tCtor} where|]
+    seriInst = unindent [i|
+      instance Serializable CautResult #{tCtor} where
+        serialize t@(#{tCtor} a) = genRecordSerialize a t
+        deserialize = genRecordDeserialize (undefined :: #{tCtor}) #{tCtor}|]
+
+unionTempl tCtor t (f:fs) = intercalate "\n" parts
+  where
+    parts =
+      [ dataType
+      , unionInst
+      , seriInst
+      ]
+    dataType =
+      let ty = "data " ++ tCtor
+          fCtor = fieldToHsType f
+          fsCtors = map fieldToHsType fs
+          ctors = ("  = " ++ fCtor) : map ("  | " ++) fsCtors
+          deriv = "  deriving (Show, Ord, Eq)"
+      in intercalate "\n" ((ty:ctors) ++ [deriv])
+    unionInst = unindent [i|
+      instance CautUnion #{tCtor} where
+        unionTagWidth = #{tagToTagWidth t}|]
+    seriInst = unindent [i|
+      instance Serializable CautResult #{tCtor} where
+        serialize t@(#{tCtor} a) = genUnionSerialize a t
+        deserialize = genUnionDeserialize (undefined :: #{tCtor}) #{tCtor}|]
+
+fieldToHsType (Spec.DataField n i r) = identToHsName n ++ " " ++ identToHsName r
+fieldToHsType (Spec.EmptyField n i) = identToHsName n
+
+maximumIndex [] = Nothing
+maximumIndex xs = Just $ foldr (max) 0 (map Spec.enumValIndex xs)
 
 primToGhc7Prim CT.PU8   = "GHC7Word8"
 primToGhc7Prim CT.PU16  = "GHC7Word16"
@@ -201,7 +301,7 @@ primToGhc7Prim CT.PF32  = "GHC7Float"
 primToGhc7Prim CT.PF64  = "GHC7Double"
 primToGhc7Prim CT.PBool = "GHC7Bool"
 
-tagToGhc7Prim CT.T1 = "GHC7Tag1"
-tagToGhc7Prim CT.T2 = "GHC7Tag2"
-tagToGhc7Prim CT.T4 = "GHC7Tag4"
-tagToGhc7Prim CT.T8 = "GHC7Tag8"
+tagToTagWidth CT.T1 = 1
+tagToTagWidth CT.T2 = 2
+tagToTagWidth CT.T4 = 4
+tagToTagWidth CT.T8 = 8

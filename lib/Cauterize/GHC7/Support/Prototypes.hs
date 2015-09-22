@@ -88,7 +88,7 @@ class CautTranscodable a => CautSynonym a where
 
 class CautTranscodable a => CautRange a where
   rangePrim :: a -> GHC7Prim
-  rangeTag :: a -> GHC7Tag
+  rangeTagWidth :: a -> Integer
   rangeOffset :: a -> Integer
   rangeLength :: a -> Integer
 
@@ -100,6 +100,8 @@ class CautTranscodable a => CautVector a where
   vectorTagWidth :: a -> Integer
 
 class CautTranscodable a => CautEnumeration a where
+  enumerationTagWidth :: a -> Integer
+  enumerationMaxVal :: a -> Integer
 
 class CautTranscodable a => CautRecord a where
 
@@ -125,12 +127,6 @@ data GHC7Prim = GHC7Word8
               | GHC7Bool
               | GHC7Float32
               | GHC7Float64
-  deriving (Show, Eq)
-
-data GHC7Tag  = GHC7Tag1
-              | GHC7Tag2
-              | GHC7Tag4
-              | GHC7Tag8
   deriving (Show, Eq)
 
 genSynonymSerialize :: (CautSynonym a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
