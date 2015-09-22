@@ -2,3 +2,4 @@
 cabal.sandbox.config
 dist
 crucible-*
+.stack-work

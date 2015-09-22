@@ -134,8 +134,8 @@ libTypeTempl t =  unlines [declinst, transinst, typeinst]
      case Spec.typeDesc t of
        Spec.Synonym { Spec.synonymRef = r } ->
          synonymTempl tCtor r
-       _ -> "{- UNSUPPORTED TYPE -}"
-
+       Spec.Range { Spec.rangeOffset = ro, Spec.rangeLength = rl, Spec.rangeTag = rt, Spec.rangePrim = rp } ->
+         rangeTempl tCtor ro rl rt rp
   {-
     S.Range { S.rangeOffset = o, S.rangeLength = l, S.rangeTag = rt, S.rangePrim = rp } ->
       rangeEncoderBody o l rt rp
@@ -173,3 +173,35 @@ synonymTempl tCtor r = unindent [i|
     deserialize = genSynonymDeserialize (undefined :: #{tCtor}) #{tCtor}|]
   where
     rCtor = identToHsName r
+
+rangeTempl tCtor ro rl rt rp = unindent [i|
+  data #{tCtor} = #{tCtor} #{rpCtor} deriving (Show, Eq, Ord)
+  instance CautRange #{tCtor} where
+    rangePrim = const #{rpCtor}
+    rangeTag = const #{rtCtor}
+    rangeOffset = const #{ro}
+    rangeLength = const #{rl}
+  instance Serializable CautResult #{tCtor} where
+    serialize t@(#{tCtor} a) = genRangeSerialize a t
+    deserialize = genRangeDeserialize (undefined :: #{tCtor}) #{tCtor}|]
+  where
+    rpCtor = primToGhc7Prim rp
+    rtCtor = tagToGhc7Prim rt
+
+
+primToGhc7Prim CT.PU8   = "GHC7Word8"
+primToGhc7Prim CT.PU16  = "GHC7Word16"
+primToGhc7Prim CT.PU32  = "GHC7Word32"
+primToGhc7Prim CT.PU64  = "GHC7Word64"
+primToGhc7Prim CT.PS8   = "GHC7Int8"
+primToGhc7Prim CT.PS16  = "GHC7Int16"
+primToGhc7Prim CT.PS32  = "GHC7Int32"
+primToGhc7Prim CT.PS64  = "GHC7Int64"
+primToGhc7Prim CT.PF32  = "GHC7Float"
+primToGhc7Prim CT.PF64  = "GHC7Double"
+primToGhc7Prim CT.PBool = "GHC7Bool"
+
+tagToGhc7Prim CT.T1 = "GHC7Tag1"
+tagToGhc7Prim CT.T2 = "GHC7Tag2"
+tagToGhc7Prim CT.T4 = "GHC7Tag4"
+tagToGhc7Prim CT.T8 = "GHC7Tag8"

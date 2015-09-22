@@ -127,10 +127,10 @@ data GHC7Prim = GHC7Word8
               | GHC7Float64
   deriving (Show, Eq)
 
-data GHC7Tag  = GHC7Tag8
-              | GHC7Tag16
-              | GHC7Tag32
-              | GHC7Tag64
+data GHC7Tag  = GHC7Tag1
+              | GHC7Tag2
+              | GHC7Tag4
+              | GHC7Tag8
   deriving (Show, Eq)
 
 genSynonymSerialize :: (CautSynonym a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
