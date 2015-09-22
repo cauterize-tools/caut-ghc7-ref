@@ -13,6 +13,8 @@ module Cauterize.GHC7.Support.Prototypes
   , CautCombination(..)
   , CautUnion(..)
 
+  , GHC7Prim(..)
+
   , Hash
   , MinSize
   , MaxSize
@@ -140,11 +142,26 @@ genSynonymSerialize v t = withTrace (TSynonym $ cautName t) (serialize v)
 genSynonymDeserialize :: (CautSynonym a, Serializable CautResult b) => a -> (b -> a) -> Deserialize CautResult a
 genSynonymDeserialize t ctor = withTrace (TSynonym $ cautName t) (liftM ctor deserialize)
 
-genRangeSerialize :: (CautRange a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
-genRangeSerialize _ _ = undefined -- withTrace (TRange $ cautName t) (serialize v)
+genRangeSerialize :: (Show b, Integral b, CautRange a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
+genRangeSerialize v t = withTrace (TRange $ cautName t) $ do
+  if fromIntegral v < rmin || rmax < fromIntegral v
+     then failWithTrace $ T.concat ["Unexpected range value ", tshow v, ". Should be between ", tshow rmin, " and ", tshow rmax, "."]
+     else tagEncode (fromIntegral $ rangeTagWidth t) tag
+   where
+    rmin = rangeOffset t
+    rmax = rangeOffset t + rangeLength t
+    tag = fromIntegral ((fromIntegral v) - (rangeOffset t)) :: Word64
 
-genRangeDeserialize :: (CautRange a, Serializable CautResult b) => a -> (b -> a) -> Deserialize CautResult a
-genRangeDeserialize _ _ = undefined -- withTrace (TRange $ cautName t) (liftM ctor deserialize)
+genRangeDeserialize :: (Integral b, CautRange a, Serializable CautResult b) => a -> (b -> a) -> Deserialize CautResult a
+genRangeDeserialize t ctor = withTrace (TRange $ cautName t) $ do
+  tag <- tagDecode (fromIntegral $ rangeTagWidth t)
+  let val = fromIntegral tag + (rangeOffset t) :: Integer
+  if val < rmin || rmax < val
+     then failWithTrace $ T.concat ["Unexpected range value ", tshow val, ". Should be between ", tshow rmin, " and ", tshow rmax, "."]
+     else (return . ctor . fromIntegral) val
+  where
+    rmin = rangeOffset t
+    rmax = rangeOffset t + rangeLength t
 
 genArraySerialize :: (CautArray a, Serializable CautResult b)
                   => V.Vector b -> a -> Serialize CautResult ()
@@ -192,11 +209,17 @@ genVectorDeserialize t ctor = withTrace (TVector . cautName $ t) $ do
     vTagWidth = fromIntegral $ vectorTagWidth t
     go ix = withTrace (TArrayIndex ix) deserialize
 
-genEnumerationSerialize :: (CautEnumeration a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
-genEnumerationSerialize _ _ = undefined -- withTrace (TEnumeration $ cautName t) (serialize v)
+genEnumerationSerialize :: (Enum b, CautEnumeration a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
+genEnumerationSerialize v t = withTrace (TEnumeration . cautName $ t) $ tagEncode (fromIntegral $ enumerationTagWidth t) tag
+  where
+    tag = (toEnum . fromEnum) v
 
-genEnumerationDeserialize :: (CautEnumeration a, Serializable CautResult b) => a -> (b -> a) -> Deserialize CautResult a
-genEnumerationDeserialize _ _ = undefined -- withTrace (TEnumeration $ cautName t) (liftM ctor deserialize)
+genEnumerationDeserialize :: (Enum a, CautEnumeration a) => a -> Deserialize CautResult a
+genEnumerationDeserialize t = withTrace (TEnumeration . cautName $ t) $ do
+  tag <- tagDecode (fromIntegral $ enumerationTagWidth t)
+  if fromIntegral tag > (enumerationMaxVal t)
+     then failWithTrace $ T.concat ["Enumeration value out of range. ", tshow tag, " > ", tshow (enumerationMaxVal t), "."]
+     else (return . toEnum . fromEnum) tag
 
 -- genFieldSerialize :: Serializable CautResult a => T.Text -> a -> Serialize CautResult ()
 genFieldSerialize :: Serializable CautResult a => Trace -> a -> Serialize CautResult ()

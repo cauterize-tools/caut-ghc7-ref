@@ -293,7 +293,7 @@ enumerationTempl tn allevs@(ev:evs) et = intercalate "\n" parts
     enumInst = unindent [i|
       instance CautEnumeration #{tCtor} where
         enumerationTagWidth = const #{tWidth}
-        enumerationMaxIndex = const #{maximumIndex}|]
+        enumerationMaxVal = const #{maximumIndex}|]
     seriInst = unindent [i|
       instance Serializable CautResult #{tCtor} where
         serialize t@(#{tCtor} a) = genEnumerationSerialize a t
@@ -388,16 +388,44 @@ combinationTempl tn allfs@(f:fs) t = intercalate "\n" parts
           fCtor = combFieldToHsType f
           fsCtors = map combFieldToHsType fs
           ctors = ("  { " ++ fCtor) : map ("  , " ++ ) fsCtors
-          deriv = "  } deriving (Show, Ord, Eq)"
+          deriv = "  } deriving (Show, Ord, Eq, Enum)"
       in intercalate "\n" ((ty:ctors) ++ [deriv])
     combInst = unindent [i|
       instance CautCombination #{tCtor} where
         combinationTagWidth = #{tagToTagWidth t}
         combinationMaxIndex = #{maximumIndex}|]
-    seriInst = unindent [i|
-      instance Serializable CautResult #{tCtor} where
-        serialize t@(#{tCtor} a) = genCombinationSerialize a t
-        deserialize = genCombinationDeserialize (undefined :: #{tCtor}) #{tCtor}|]
+
+    encFn =
+      let ef:efs = map genPresent allfs
+          line0 = unindent [i|
+                    serialize r = withTrace (TCombination $ cautName r) $ do
+                      encodeCombTag r [ #{ef}|]
+          lineNs = let indent = "                  "
+                   in map (\x -> indent ++ ", " ++ x) efs ++ [indent ++ "]"]
+          genPresent fld = let n' = identToHsName (Spec.fieldName fld)
+                           in [i|fieldPresent $ #{tVar}#{n'}|]
+      in intercalate "\n" (line0:lineNs)
+
+    decFn =
+      let dfs = map genDeser allfs
+          line0 = unindent [i|
+                      deserialize =
+                        let u = undefined :: #{tCtor}
+                        in withTrace (TCombination $ cautName u) $ do
+                            flags <- decodeCombTag u
+                            return #{tCtor}|]
+          lineNs = let indent = "       "
+                   in map (\x -> indent ++ "`ap` " ++ x) dfs
+
+          genDeser (Spec.DataField n ix _)  = [i|genCombFieldDeserialize "#{unpackIdent n}" (flags `isFlagSet` #{ix})|]
+          genDeser (Spec.EmptyField _ ix)   = [i|return $ if flags `isFlagSet` #{ix} then Just () else Nothing|]
+      in intercalate "\n" (line0:lineNs)
+
+    seriInst =
+      let inst = [i|instance Serializable CautResult #{tCtor} where|]
+      in intercalate "\n" [inst, encFn, decFn]
+
+
     combFieldToHsType (Spec.DataField n _ r) = tVar ++ identToHsName n ++ " :: Maybe " ++ identToHsName r
     combFieldToHsType (Spec.EmptyField n _) = tVar ++ identToHsName n ++ " :: Maybe ()"
 
