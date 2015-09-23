@@ -296,8 +296,8 @@ enumerationTempl tn allevs@(ev:evs) et = intercalate "\n" parts
         enumerationMaxVal = const #{maximumIndex}|]
     seriInst = unindent [i|
       instance Serializable CautResult #{tCtor} where
-        serialize t@(#{tCtor} a) = genEnumerationSerialize a t
-        deserialize = genEnumerationDeserialize (undefined :: #{tCtor}) #{tCtor}|]
+        serialize t = genEnumerationSerialize t
+        deserialize = genEnumerationDeserialize (undefined :: #{tCtor})|]
 
 recordTempl :: CT.Identifier -> [Spec.Field] -> String
 recordTempl tn fs = intercalate "\n" parts
@@ -347,24 +347,26 @@ unionTempl tn t allfs@(f:fs) = intercalate "\n" parts
       instance CautUnion #{tCtor} where
         unionTagWidth = #{tagToTagWidth t}|]
     seriInst =
-      let inst = [i|instance Serializable CautResult #{tCtor} where|]
+      let inst =
+            [ [i|instance Serializable CautResult #{tCtor} where|]
+            , [i|  serialize r = withTrace (TUnion $ cautName r) $|]
+            , [i|                  case r of|]
+            ] ++ sers ++
+            [ [i|  deserialize =|]
+            , [i|    let u = undefined :: #{tCtor}|]
+            , [i|    in withTrace (TUnion $ cautName u) $ do|]
+            , [i|         tag <- decodeUnionTag u|]
+            , [i|         case tag of|]
+            ] ++ dsers
 
-          sdef0  = [i|  serialize r = withTrace (TUnion $ cautName r) $|]
-          sdef1  = [i|    case r of|]
           sers = map serBranch allfs
-          serBranch (Spec.DataField n ix _) = [i|      #{tCtor}#{identToHsName n} v -> genUnionFieldSerialize r #{ix} "#{unpackIdent n}" v|]
-          serBranch (Spec.EmptyField n ix)  = [i|      #{tCtor}#{identToHsName n} v -> genUnionFieldSerializeEmpty r #{ix}|]
+          serBranch (Spec.DataField n ix _)    = [i|                    #{tCtor}#{identToHsName n} v -> genUnionFieldSerialize r #{ix} "#{unpackIdent n}" v|]
+          serBranch (Spec.EmptyField n ix)     = [i|                    #{tCtor}#{identToHsName n} v -> genUnionFieldSerializeEmpty r #{ix}|]
 
-          ddef = unindent [i|
-            deserialize =
-              let u = undefined :: #{tCtor}
-              in withTrace (TUnion $ cautName u) $ do
-                   tag <- decodeUnionTag u
-                   case tag of|]
-          dsers = map deserBranch allfs ++ ["         v -> failUnionTag v"]
-          deserBranch (Spec.DataField n ix _)  = [i|         #{ix} -> genUnionFieldDeserialize "#{unpackIdent n}" #{tCtor}#{identToHsName n}|]
-          deserBranch (Spec.EmptyField n ix)   = [i|         #{ix} -> return #{tCtor}#{identToHsName n}|]
-      in intercalate "\n" ((inst:sdef0:sdef1:sers) ++ (ddef:dsers))
+          dsers = map deserBranch allfs ++        ["           v -> failUnionTag v"]
+          deserBranch (Spec.DataField n ix _)  = [i|           #{ix} -> genUnionFieldDeserialize "#{unpackIdent n}" #{tCtor}#{identToHsName n}|]
+          deserBranch (Spec.EmptyField n ix)   = [i|           #{ix} -> return #{tCtor}#{identToHsName n}|]
+      in intercalate "\n" inst
 
     unionFieldToHsType (Spec.DataField n _ r) = tCtor ++ identToHsName n ++ " " ++ identToHsName r
     unionFieldToHsType (Spec.EmptyField n _) = tCtor ++ identToHsName n
@@ -395,35 +397,32 @@ combinationTempl tn allfs@(f:fs) t = intercalate "\n" parts
         combinationTagWidth = #{tagToTagWidth t}
         combinationMaxIndex = #{maximumIndex}|]
 
-    encFn =
+    seriInst =
       let ef:efs = map genPresent allfs
-          line0 = unindent [i|
-                    serialize r = withTrace (TCombination $ cautName r) $ do
-                      encodeCombTag r [ #{ef}|]
-          lineNs = let indent = "                  "
-                   in map (\x -> indent ++ ", " ++ x) efs ++ [indent ++ "]"]
+          dfs = map genDeser allfs
+          inst =
+            [ [i|instance Serializable CautResult #{tCtor} where|]
+            , [i|  serialize r = withTrace (TCombination $ cautName r) $ do|]
+            , [i|    encodeCombTag r [ #{ef}|]
+            ] ++ serLines ++
+            [ [i|  deserialize =|]
+            , [i|    let u = undefined :: #{tCtor}|]
+            , [i|    in withTrace (TCombination $ cautName u) $ do|]
+            , [i|        flags <- decodeCombTag u|]
+            , [i|        return #{tCtor}|]
+            ] ++ dserLines
+
+          serLines = let indent = "                  "
+                     in map (\x -> indent ++ ", " ++ x) efs ++ [indent ++ "]"]
+          dserLines = let indent = "          "
+                      in map (\x -> indent ++ "`ap` " ++ x) dfs
+
           genPresent fld = let n' = identToHsName (Spec.fieldName fld)
                            in [i|fieldPresent $ #{tVar}#{n'}|]
-      in intercalate "\n" (line0:lineNs)
-
-    decFn =
-      let dfs = map genDeser allfs
-          line0 = unindent [i|
-                      deserialize =
-                        let u = undefined :: #{tCtor}
-                        in withTrace (TCombination $ cautName u) $ do
-                            flags <- decodeCombTag u
-                            return #{tCtor}|]
-          lineNs = let indent = "       "
-                   in map (\x -> indent ++ "`ap` " ++ x) dfs
-
           genDeser (Spec.DataField n ix _)  = [i|genCombFieldDeserialize "#{unpackIdent n}" (flags `isFlagSet` #{ix})|]
           genDeser (Spec.EmptyField _ ix)   = [i|return $ if flags `isFlagSet` #{ix} then Just () else Nothing|]
-      in intercalate "\n" (line0:lineNs)
 
-    seriInst =
-      let inst = [i|instance Serializable CautResult #{tCtor} where|]
-      in intercalate "\n" [inst, encFn, decFn]
+      in intercalate "\n" inst
 
 
     combFieldToHsType (Spec.DataField n _ r) = tVar ++ identToHsName n ++ " :: Maybe " ++ identToHsName r

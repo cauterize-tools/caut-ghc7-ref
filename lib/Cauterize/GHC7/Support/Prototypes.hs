@@ -209,8 +209,8 @@ genVectorDeserialize t ctor = withTrace (TVector . cautName $ t) $ do
     vTagWidth = fromIntegral $ vectorTagWidth t
     go ix = withTrace (TArrayIndex ix) deserialize
 
-genEnumerationSerialize :: (Enum b, CautEnumeration a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
-genEnumerationSerialize v t = withTrace (TEnumeration . cautName $ t) $ tagEncode (fromIntegral $ enumerationTagWidth t) tag
+genEnumerationSerialize :: (Enum a, CautEnumeration a, Serializable CautResult a) => a -> Serialize CautResult ()
+genEnumerationSerialize v = withTrace (TEnumeration . cautName $ v) $ tagEncode (fromIntegral $ enumerationTagWidth v) tag
   where
     tag = (toEnum . fromEnum) v
 
