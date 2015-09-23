@@ -13,8 +13,6 @@ module Cauterize.GHC7.Support.Prototypes
   , CautCombination(..)
   , CautUnion(..)
 
-  , GHC7Prim(..)
-
   , Hash
   , MinSize
   , MaxSize
@@ -187,13 +185,12 @@ instance CautTranscodable Bool where
        x -> failWithTrace ("Invalid boolean value: " `T.append` tshow x)
 
 class CautTranscodable a => CautType a where
-  cautHash :: a -> Hash
+  cautFingerprint :: a -> Hash
 
 -- The following are instances for each of the Cauterize prototypes
 class CautTranscodable a => CautSynonym a where
 
 class CautTranscodable a => CautRange a where
-  rangePrim :: a -> GHC7Prim
   rangeTagWidth :: a -> Integer
   rangeOffset :: a -> Integer
   rangeLength :: a -> Integer
@@ -222,26 +219,16 @@ type Hash = [Word8]
 type MinSize = Integer
 type MaxSize = Integer
 
-data GHC7Prim = GHC7Word8
-              | GHC7Word16
-              | GHC7Word32
-              | GHC7Word64
-              | GHC7Int8
-              | GHC7Int16
-              | GHC7Int32
-              | GHC7Int64
-              | GHC7Bool
-              | GHC7Float32
-              | GHC7Float64
-  deriving (Show, Eq)
-
-genSynonymSerialize :: (CautSynonym a, CautTranscodable b) => b -> a -> Serialize CautResult ()
+genSynonymSerialize :: (CautSynonym a, CautTranscodable b)
+                    => b -> a -> Serialize CautResult ()
 genSynonymSerialize v t = withTrace (TSynonym $ cautName t) (custSerialize v)
 
-genSynonymDeserialize :: (CautSynonym a, CautTranscodable b) => a -> (b -> a) -> Deserialize CautResult a
+genSynonymDeserialize :: (CautSynonym a, CautTranscodable b)
+                      => a -> (b -> a) -> Deserialize CautResult a
 genSynonymDeserialize t ctor = withTrace (TSynonym $ cautName t) (liftM ctor custDeserialize)
 
-genRangeSerialize :: (Show b, Integral b, CautRange a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
+genRangeSerialize :: (Show b, Integral b, CautRange a, Serializable CautResult b)
+                  => b -> a -> Serialize CautResult ()
 genRangeSerialize v t = withTrace (TRange $ cautName t) $ do
   if fromIntegral v < rmin || rmax < fromIntegral v
      then failWithTrace $ T.concat ["Unexpected range value ", tshow v, ". Should be between ", tshow rmin, " and ", tshow rmax, "."]
@@ -251,7 +238,8 @@ genRangeSerialize v t = withTrace (TRange $ cautName t) $ do
     rmax = rangeOffset t + rangeLength t
     tag = fromIntegral ((fromIntegral v) - (rangeOffset t)) :: Word64
 
-genRangeDeserialize :: (Integral b, CautRange a, Serializable CautResult b) => a -> (b -> a) -> Deserialize CautResult a
+genRangeDeserialize :: (Integral b, CautRange a, Serializable CautResult b)
+                    => a -> (b -> a) -> Deserialize CautResult a
 genRangeDeserialize t ctor = withTrace (TRange $ cautName t) $ do
   tag <- tagDecode (fromIntegral $ rangeTagWidth t)
   let val = fromIntegral tag + (rangeOffset t) :: Integer
@@ -314,24 +302,29 @@ genEnumerationSerialize v = withTrace (TEnumeration . cautName $ v) $ tagEncode 
   where
     tag = (toEnum . fromEnum) v
 
-genEnumerationDeserialize :: (Enum a, CautEnumeration a) => a -> Deserialize CautResult a
+genEnumerationDeserialize :: (Enum a, CautEnumeration a)
+                          => a -> Deserialize CautResult a
 genEnumerationDeserialize t = withTrace (TEnumeration . cautName $ t) $ do
   tag <- tagDecode (fromIntegral $ enumerationTagWidth t)
   if fromIntegral tag > (enumerationMaxVal t)
      then failWithTrace $ T.concat ["Enumeration value out of range. ", tshow tag, " > ", tshow (enumerationMaxVal t), "."]
      else (return . toEnum . fromEnum) tag
 
-genFieldSerialize :: CautTranscodable a => Trace -> a -> Serialize CautResult ()
+genFieldSerialize :: CautTranscodable a
+                  => Trace -> a -> Serialize CautResult ()
 genFieldSerialize t v = withTrace t (custSerialize v)
 
-genFieldDeserialize :: CautTranscodable a => Trace -> Deserialize CautResult a
+genFieldDeserialize :: CautTranscodable a
+                    => Trace -> Deserialize CautResult a
 genFieldDeserialize t = withTrace t custDeserialize
 
-genCombFieldSerialize :: CautTranscodable a => T.Text -> Maybe a -> Serialize CautResult ()
+genCombFieldSerialize :: CautTranscodable a
+                      => T.Text -> Maybe a -> Serialize CautResult ()
 genCombFieldSerialize _ Nothing = return ()
 genCombFieldSerialize t (Just f) = genFieldSerialize (TCombinationField t) f
 
-genCombFieldDeserialize :: CautTranscodable a => T.Text -> Bool -> Deserialize CautResult (Maybe a)
+genCombFieldDeserialize :: CautTranscodable a
+                        => T.Text -> Bool -> Deserialize CautResult (Maybe a)
 genCombFieldDeserialize _ False = return Nothing
 genCombFieldDeserialize n True = liftM Just (genFieldDeserialize $ TCombinationField n)
 
@@ -351,10 +344,12 @@ calcCombTag bits = foldl go zeroBits indexBits
     go v (_, False) = v
     indexBits = zip [0..] bits
 
-encodeCombTag :: CautCombination a => a -> [Bool] -> Serialize CautResult ()
+encodeCombTag :: CautCombination a
+              => a -> [Bool] -> Serialize CautResult ()
 encodeCombTag t flags = withTrace TCombinationTag $ tagEncode (fromIntegral $ combinationTagWidth t) (calcCombTag flags)
 
-decodeCombTag :: CautCombination a => a -> Deserialize CautResult Word64
+decodeCombTag :: CautCombination a
+              => a -> Deserialize CautResult Word64
 decodeCombTag t = withTrace TCombinationTag $ do
   flags <- tagDecode (fromIntegral $ combinationTagWidth t)
   if flags < 2^maxIxP1

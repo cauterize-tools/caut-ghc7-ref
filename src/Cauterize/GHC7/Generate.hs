@@ -207,7 +207,7 @@ transcodableTempl n szMin szMax = unindent [i|
 typeTempl :: String -> H.Hash -> String
 typeTempl ctor hash = unindent [i|
   instance CautType #{ctor} where
-    cautHash = const #{hashToStr hash}|]
+    cautFingerprint = const #{hashToStr hash}|]
   where
     hashToStr h = show (H.hashToBytes h)
 
@@ -226,7 +226,6 @@ rangeTempl :: CT.Identifier -> CT.Offset -> CT.Length -> CT.Tag -> CT.Prim -> St
 rangeTempl tn ro rl rt rp = unindent [i|
   data #{tCtor} = #{tCtor} #{rpCtor} deriving (Show, Eq, Ord)
   instance CautRange #{tCtor} where
-    rangePrim = const #{rpMetaCtor}
     rangeTagWidth = const #{rtWidth}
     rangeOffset = const #{fmtNegative ro}
     rangeLength = const #{rl}
@@ -236,7 +235,6 @@ rangeTempl tn ro rl rt rp = unindent [i|
   where
     tCtor = identToHsName tn
     rpCtor = (identToHsName . CT.primToText) rp
-    rpMetaCtor = primToGhc7Prim rp
     rtWidth = tagToTagWidth rt
     fmtNegative n | n < 0 = "(" ++ show n ++ ")"
                   | otherwise = show n
@@ -440,19 +438,6 @@ combinationTempl tn allfs@(f:fs) t = intercalate "\n" parts
 
     combFieldToHsType (Spec.DataField n _ r) = tVar ++ identToHsName n ++ " :: Maybe " ++ identToHsName r
     combFieldToHsType (Spec.EmptyField n _) = tVar ++ identToHsName n ++ " :: Maybe ()"
-
-primToGhc7Prim :: CT.Prim -> String
-primToGhc7Prim CT.PU8   = "GHC7Word8"
-primToGhc7Prim CT.PU16  = "GHC7Word16"
-primToGhc7Prim CT.PU32  = "GHC7Word32"
-primToGhc7Prim CT.PU64  = "GHC7Word64"
-primToGhc7Prim CT.PS8   = "GHC7Int8"
-primToGhc7Prim CT.PS16  = "GHC7Int16"
-primToGhc7Prim CT.PS32  = "GHC7Int32"
-primToGhc7Prim CT.PS64  = "GHC7Int64"
-primToGhc7Prim CT.PF32  = "GHC7Float"
-primToGhc7Prim CT.PF64  = "GHC7Double"
-primToGhc7Prim CT.PBool = "GHC7Bool"
 
 tagToTagWidth :: CT.Tag -> Integer
 tagToTagWidth CT.T1 = 1
