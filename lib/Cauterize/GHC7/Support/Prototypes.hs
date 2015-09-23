@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, MultiParamTypeClasses #-}
 module Cauterize.GHC7.Support.Prototypes
   ( CautType(..)
   , CautTranscodable(..)
@@ -57,6 +57,9 @@ import Cauterize.GHC7.Support.Result
 import CerealPlus.Deserialize
 import CerealPlus.Serializable
 import CerealPlus.Serialize
+import qualified Data.Serialize.Put as P
+import qualified Data.Serialize.Get as G
+import qualified Data.Serialize.IEEE754 as F
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Reader
@@ -68,24 +71,120 @@ import qualified Data.ByteString.Lazy as B
 import qualified Data.Text as T
 import qualified Data.Vector as V
 
-class CautTranscodable a where
+class Serializable CautResult a => CautTranscodable a where
   cautName :: a -> T.Text
   cautSize :: a -> (MinSize, MaxSize)
 
-  encode :: Serializable CautResult a => a -> Either CautError B.ByteString
-  encode a = let CautResult r = runLazy $ serialize a
+  custSerialize :: a -> Serialize CautResult ()
+  custSerialize = serialize
+
+  custDeserialize :: Deserialize CautResult a
+  custDeserialize = deserialize
+
+  encode :: a -> Either CautError B.ByteString
+  encode a = let CautResult r = runLazy $ custSerialize a
              in case runReaderT r [] of
                   Left e -> Left e
                   Right ((), b) -> Right b
 
-  decode :: Serializable CautResult a => B.ByteString -> Either CautError (a, B.ByteString)
+  decode :: B.ByteString -> Either CautError (a, B.ByteString)
   decode b = let b' = B.toStrict b
-                 CautResult r = runPartial deserialize b'
+                 CautResult r = runPartial custDeserialize b'
              in case runReaderT r [] of
                   Left e -> Left e
                   Right (Fail msg _) -> Left (CautError msg [])
                   Right (Partial _) -> Left (CautError "Ran out of bytes." [])
                   Right (Done a bs) -> Right (a, B.fromStrict bs)
+
+traceSerializePrim :: (s -> P.Put) -> Trace -> s -> Serialize CautResult ()
+traceSerializePrim m t v = withTrace t (liftPut . m $ v)
+
+traceDeserializePrim :: G.Get b -> Trace -> (b -> a) -> Deserialize CautResult a
+traceDeserializePrim m t c = withTrace t $ liftGet (liftM c m)
+
+tU8, tU16, tU32, tU64 :: Trace
+tU8 = TBuiltIn "u8"
+tU16 = TBuiltIn "u16"
+tU32 = TBuiltIn "u32"
+tU64 = TBuiltIn "u64"
+
+tS8, tS16, tS32, tS64 :: Trace
+tS8 = TBuiltIn "s8"
+tS16 = TBuiltIn "s16"
+tS32 = TBuiltIn "s32"
+tS64 = TBuiltIn "s64"
+
+tF32, tF64 :: Trace
+tF32 = TBuiltIn "f32"
+tF64 = TBuiltIn "f64"
+
+tCBool :: Trace
+tCBool = TBuiltIn "bool"
+
+instance CautTranscodable Word8 where
+  cautName = const "u8"
+  cautSize = const (1,1)
+  custSerialize w = traceSerializePrim P.putWord8 tU8 w
+  custDeserialize = traceDeserializePrim G.getWord8 tU8 id
+instance CautTranscodable Word16 where
+  cautName = const "u16"
+  cautSize = const (2,2)
+  custSerialize w = traceSerializePrim P.putWord16le tU16 w
+  custDeserialize = traceDeserializePrim G.getWord16le tU16 id
+instance CautTranscodable Word32 where
+  cautName = const "u32"
+  cautSize = const (4,4)
+  custSerialize w = traceSerializePrim P.putWord32le tU32 w
+  custDeserialize = traceDeserializePrim G.getWord32le tU32 id
+instance CautTranscodable Word64 where
+  cautName = const "u64"
+  cautSize = const (8,8)
+  custSerialize w = traceSerializePrim P.putWord64le tU8 w
+  custDeserialize = traceDeserializePrim G.getWord64le tU64 id
+
+instance CautTranscodable Int8 where
+  cautName = const "s8"
+  cautSize = const (1,1)
+  custSerialize w = traceSerializePrim P.putWord8 tS8 (fromIntegral w)
+  custDeserialize = traceDeserializePrim G.getWord8 tS8 fromIntegral
+instance CautTranscodable Int16 where
+  cautName = const "s16"
+  cautSize = const (2,2)
+  custSerialize w = traceSerializePrim P.putWord16le tS16 (fromIntegral w)
+  custDeserialize = traceDeserializePrim G.getWord16le tS16 fromIntegral
+instance CautTranscodable Int32 where
+  cautName = const "s32"
+  cautSize = const (4,4)
+  custSerialize w = traceSerializePrim P.putWord32le tS32 (fromIntegral w)
+  custDeserialize = traceDeserializePrim G.getWord32le tS32 fromIntegral
+instance CautTranscodable Int64 where
+  cautName = const "s64"
+  cautSize = const (8,8)
+  custSerialize w = traceSerializePrim P.putWord64le tS64 (fromIntegral w)
+  custDeserialize = traceDeserializePrim G.getWord64le tS64 fromIntegral
+
+instance CautTranscodable Float where
+  cautName = const "f32"
+  cautSize = const (4,4)
+  custSerialize w = traceSerializePrim F.putFloat32le tF32 w
+  custDeserialize = traceDeserializePrim F.getFloat32le tF32 id
+instance CautTranscodable Double where
+  cautName = const "f64"
+  cautSize = const (8,8)
+  custSerialize w = traceSerializePrim F.putFloat64le tF64 w
+  custDeserialize = traceDeserializePrim F.getFloat64le tF64 id
+
+instance CautTranscodable Bool where
+  cautName = const "bool"
+  cautSize = const (1,1)
+  custSerialize True = traceSerializePrim P.putWord8 tCBool (1 :: Word8)
+  custSerialize False = traceSerializePrim P.putWord8 tCBool (0 :: Word8)
+  custDeserialize = withTrace tCBool $ do
+    v <- deserialize :: Deserialize CautResult Word8
+    case v of
+       1 -> return True
+       0 -> return False
+       x -> failWithTrace ("Invalid boolean value: " `T.append` tshow x)
 
 class CautTranscodable a => CautType a where
   cautHash :: a -> Hash
@@ -136,11 +235,11 @@ data GHC7Prim = GHC7Word8
               | GHC7Float64
   deriving (Show, Eq)
 
-genSynonymSerialize :: (CautSynonym a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
-genSynonymSerialize v t = withTrace (TSynonym $ cautName t) (serialize v)
+genSynonymSerialize :: (CautSynonym a, CautTranscodable b) => b -> a -> Serialize CautResult ()
+genSynonymSerialize v t = withTrace (TSynonym $ cautName t) (custSerialize v)
 
-genSynonymDeserialize :: (CautSynonym a, Serializable CautResult b) => a -> (b -> a) -> Deserialize CautResult a
-genSynonymDeserialize t ctor = withTrace (TSynonym $ cautName t) (liftM ctor deserialize)
+genSynonymDeserialize :: (CautSynonym a, CautTranscodable b) => a -> (b -> a) -> Deserialize CautResult a
+genSynonymDeserialize t ctor = withTrace (TSynonym $ cautName t) (liftM ctor custDeserialize)
 
 genRangeSerialize :: (Show b, Integral b, CautRange a, Serializable CautResult b) => b -> a -> Serialize CautResult ()
 genRangeSerialize v t = withTrace (TRange $ cautName t) $ do
@@ -163,25 +262,25 @@ genRangeDeserialize t ctor = withTrace (TRange $ cautName t) $ do
     rmin = rangeOffset t
     rmax = rangeOffset t + rangeLength t
 
-genArraySerialize :: (CautArray a, Serializable CautResult b)
+genArraySerialize :: (CautArray a, CautTranscodable b)
                   => V.Vector b -> a -> Serialize CautResult ()
 genArraySerialize vs t = withTrace tArray $ if V.length vs /= aLength then fwt else V.mapM_ go (vsWithIx vs)
   where
     tArray = TArray $ cautName t
     aLength = fromIntegral $ arrayLength t
     fwt = failWithTrace $ T.concat ["Unexpected length: ", tshow (V.length vs), ". Expected ", tshow aLength, "."]
-    go (ix, v) = withTrace (TArrayIndex ix) (serialize v)
+    go (ix, v) = withTrace (TArrayIndex ix) (custSerialize v)
 
-genArrayDeserialize :: (CautArray a, Serializable CautResult b)
+genArrayDeserialize :: (CautArray a, CautTranscodable b)
                     => a -> (V.Vector b -> a) -> Deserialize CautResult a
 genArrayDeserialize t ctor = withTrace tArray $ liftM (ctor . V.fromList) (mapM go ixs)
   where
     tArray = TArray $ cautName t
     aLength = fromIntegral $ arrayLength t
     ixs = [0..aLength - 1]
-    go ix = withTrace (TArrayIndex ix) deserialize
+    go ix = withTrace (TArrayIndex ix) custDeserialize
 
-genVectorSerialize :: (CautVector a, Serializable CautResult b)
+genVectorSerialize :: (CautVector a, CautTranscodable b)
                    => V.Vector b -> a -> Serialize CautResult ()
 genVectorSerialize vs t = withTrace (TVector . cautName $ t) $ if vl > maxLen
                               then fwt
@@ -193,9 +292,9 @@ genVectorSerialize vs t = withTrace (TVector . cautName $ t) $ if vl > maxLen
     maxLen = fromIntegral $ vectorMaxLength t
     vTagWidth = fromIntegral $ vectorTagWidth t
     fwt = failWithTrace $ T.concat ["Unexpected length: ", tshow (V.length vs), ". Expected <= ", tshow maxLen, "."]
-    go (ix, v) = withTrace (TVectorIndex ix) (serialize v)
+    go (ix, v) = withTrace (TVectorIndex ix) (custSerialize v)
 
-genVectorDeserialize :: (CautVector a, Serializable CautResult b)
+genVectorDeserialize :: (CautVector a, CautTranscodable b)
                      => a -> (V.Vector b -> a) -> Deserialize CautResult a
 genVectorDeserialize t ctor = withTrace (TVector . cautName $ t) $ do
                                 vlen <- withTrace TVectorTag $ do
@@ -207,9 +306,10 @@ genVectorDeserialize t ctor = withTrace (TVector . cautName $ t) $ do
   where
     maxLen = fromIntegral $ vectorMaxLength t
     vTagWidth = fromIntegral $ vectorTagWidth t
-    go ix = withTrace (TArrayIndex ix) deserialize
+    go ix = withTrace (TArrayIndex ix) custDeserialize
 
-genEnumerationSerialize :: (Enum a, CautEnumeration a, Serializable CautResult a) => a -> Serialize CautResult ()
+genEnumerationSerialize :: (Enum a, CautEnumeration a, CautTranscodable a)
+                        => a -> Serialize CautResult ()
 genEnumerationSerialize v = withTrace (TEnumeration . cautName $ v) $ tagEncode (fromIntegral $ enumerationTagWidth v) tag
   where
     tag = (toEnum . fromEnum) v
@@ -221,19 +321,17 @@ genEnumerationDeserialize t = withTrace (TEnumeration . cautName $ t) $ do
      then failWithTrace $ T.concat ["Enumeration value out of range. ", tshow tag, " > ", tshow (enumerationMaxVal t), "."]
      else (return . toEnum . fromEnum) tag
 
--- genFieldSerialize :: Serializable CautResult a => T.Text -> a -> Serialize CautResult ()
-genFieldSerialize :: Serializable CautResult a => Trace -> a -> Serialize CautResult ()
-genFieldSerialize t v = withTrace t (serialize v)
+genFieldSerialize :: CautTranscodable a => Trace -> a -> Serialize CautResult ()
+genFieldSerialize t v = withTrace t (custSerialize v)
 
--- genFieldDeserialize :: Serializable CautResult a => T.Text -> Deserialize CautResult a
-genFieldDeserialize :: Serializable CautResult a => Trace -> Deserialize CautResult a
-genFieldDeserialize t = withTrace t deserialize
+genFieldDeserialize :: CautTranscodable a => Trace -> Deserialize CautResult a
+genFieldDeserialize t = withTrace t custDeserialize
 
-genCombFieldSerialize :: Serializable CautResult a => T.Text -> Maybe a -> Serialize CautResult ()
+genCombFieldSerialize :: CautTranscodable a => T.Text -> Maybe a -> Serialize CautResult ()
 genCombFieldSerialize _ Nothing = return ()
 genCombFieldSerialize t (Just f) = genFieldSerialize (TCombinationField t) f
 
-genCombFieldDeserialize :: Serializable CautResult a => T.Text -> Bool -> Deserialize CautResult (Maybe a)
+genCombFieldDeserialize :: CautTranscodable a => T.Text -> Bool -> Deserialize CautResult (Maybe a)
 genCombFieldDeserialize _ False = return Nothing
 genCombFieldDeserialize n True = liftM Just (genFieldDeserialize $ TCombinationField n)
 
@@ -265,7 +363,7 @@ decodeCombTag t = withTrace TCombinationTag $ do
   where
     maxIxP1 = combinationMaxIndex t + 1
 
-genUnionFieldSerialize :: (CautUnion a, Serializable CautResult b)
+genUnionFieldSerialize :: (CautUnion a, CautTranscodable b)
                        => a      -- ^ the union type
                        -> Word64 -- ^ the union tag value
                        -> T.Text -- ^ the union field name
@@ -279,7 +377,7 @@ genUnionFieldSerializeEmpty :: CautUnion a
                             => a -> Word64 -> Serialize CautResult ()
 genUnionFieldSerializeEmpty u ix = withTrace TUnionTag $ tagEncode (fromIntegral $ unionTagWidth u) ix
 
-genUnionFieldDeserialize :: Serializable CautResult a
+genUnionFieldDeserialize :: CautTranscodable a
                          => T.Text -> (a -> r) -> Deserialize CautResult r
 genUnionFieldDeserialize n ctor = liftM ctor $ genFieldDeserialize (TUnionField n)
 
@@ -294,18 +392,18 @@ failUnionTag v = failWithTrace $ "Unexpected tag: " `T.append` tshow v
 tagEncode :: Int -> Word64 -> Serialize CautResult ()
 tagEncode w i | i < 0 || (2^(8*w) - 1) < i = error $ "Value out of bounds for tag width " ++ show w ++ ": " ++ show i ++ "."
               | otherwise = case w of
-                              1 -> let i' = fromIntegral i :: Word8 in serialize i'
-                              2 -> let i' = fromIntegral i :: Word16 in serialize i'
-                              4 -> let i' = fromIntegral i :: Word32 in serialize i'
-                              8 -> let i' = fromIntegral i :: Word64 in serialize i'
+                              1 -> let i' = fromIntegral i :: Word8  in custSerialize i'
+                              2 -> let i' = fromIntegral i :: Word16 in custSerialize i'
+                              4 -> let i' = fromIntegral i :: Word32 in custSerialize i'
+                              8 -> let i' = fromIntegral i :: Word64 in custSerialize i'
                               _ -> error $ "Invalid tag width: " ++ show w
 
 tagDecode :: Int -> Deserialize CautResult Word64
 tagDecode w = case w of
-               1 -> liftM fromIntegral (deserialize :: Deserialize CautResult Word8)
-               2 -> liftM fromIntegral (deserialize :: Deserialize CautResult Word16)
-               4 -> liftM fromIntegral (deserialize :: Deserialize CautResult Word32)
-               8 -> liftM fromIntegral (deserialize :: Deserialize CautResult Word64)
+               1 -> liftM fromIntegral (custDeserialize :: Deserialize CautResult Word8)
+               2 -> liftM fromIntegral (custDeserialize :: Deserialize CautResult Word16)
+               4 -> liftM fromIntegral (custDeserialize :: Deserialize CautResult Word32)
+               8 -> liftM fromIntegral (custDeserialize :: Deserialize CautResult Word64)
                _ -> error $ "Invalid tag width: " ++ show w
 
 -- Make a showable into Text
