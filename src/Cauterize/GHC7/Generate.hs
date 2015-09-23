@@ -164,8 +164,7 @@ libTempl libname spec = unlines parts
       , [i|module Cauterize.Generated.#{libname}.Types where\n|]
       ]
     imports =
-      [ "import Cauterize.GHC7.Support.Cauterize"
-      , "import Cauterize.GHC7.Support.Prototypes"
+      [ "import Cauterize.GHC7.Support.Prototypes"
       , "import Cauterize.GHC7.Support.Result"
       , ""
       ]

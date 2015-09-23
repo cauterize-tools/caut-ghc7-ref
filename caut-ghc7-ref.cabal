@@ -60,7 +60,5 @@ library
                        cereal-plus,
                        mmorph,
                        vector
-  exposed-modules:     Cauterize.GHC7.Support.Cauterize,
-                       Cauterize.GHC7.Support.Prototypes,
-                       Cauterize.GHC7.Support.Result,
-                       Paths_caut_ghc7_ref
+  exposed-modules:     Cauterize.GHC7.Support.Prototypes,
+                       Cauterize.GHC7.Support.Result
