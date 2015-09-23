@@ -139,15 +139,9 @@ stackYamlTempl = unindent [i|
   flags: {}
   packages:
   - '.'
-  - location:
-      git: https://github.com/cauterize-tools/cauterize.git
-      commit: 18d603078d327bc08e790d7c4ae3e721760058b5
-  - location:
-      git: https://github.com/aisamanra/s-cargot.git
-      commit: 1628a7c2913fc5e72ab6ea9a813762bf86d47d49
-  - location:
-      git: https://github.com/cauterize-tools/crucible.git
-      commit: 81165b659b2ee7631f77c22ab64c97a541c874af
+  - location: ../../cauterize
+  - location: ../../../s-cargot
+  - location: ../../crucible
   - location: ../
   extra-deps:
     - hastache-0.6.0
@@ -165,14 +159,18 @@ clientTempl = unindent [i|
 libTempl :: String -> Spec.Specification -> String
 libTempl libname spec = unlines parts
   where
-    libmod = [i|module Cauterize.Generated.#{libname}.Types where\n|]
+    libmod =
+      [ "{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings #-}"
+      , [i|module Cauterize.Generated.#{libname}.Types where\n|]
+      ]
     imports =
       [ "import Cauterize.GHC7.Support.Cauterize"
       , "import Cauterize.GHC7.Support.Prototypes"
       , "import Cauterize.GHC7.Support.Result"
+      , ""
       ]
     types = map libTypeTempl (Spec.specTypes spec)
-    parts = libmod : (imports ++ types)
+    parts = libmod ++ imports ++ types
 
 libTypeTempl :: Spec.Type -> String
 libTypeTempl t =  unlines [declinst, transinst, typeinst]
@@ -231,7 +229,7 @@ rangeTempl tn ro rl rt rp = unindent [i|
   instance CautRange #{tCtor} where
     rangePrim = const #{rpMetaCtor}
     rangeTagWidth = const #{rtWidth}
-    rangeOffset = const #{ro}
+    rangeOffset = const #{fmtNegative ro}
     rangeLength = const #{rl}
   instance Serializable CautResult #{tCtor} where
     serialize t@(#{tCtor} a) = genRangeSerialize a t
@@ -241,6 +239,8 @@ rangeTempl tn ro rl rt rp = unindent [i|
     rpCtor = (identToHsName . CT.primToText) rp
     rpMetaCtor = primToGhc7Prim rp
     rtWidth = tagToTagWidth rt
+    fmtNegative n | n < 0 = "(" ++ show n ++ ")"
+                  | otherwise = show n
 
 arrayTempl :: CT.Identifier -> CT.Identifier -> CT.Length -> String
 arrayTempl tn r l = unindent [i|
@@ -288,7 +288,7 @@ enumerationTempl tn allevs@(ev:evs) et = intercalate "\n" parts
           evCtor = enumValToHsName ev
           evsCtors = map enumValToHsName evs
           ctors = ("  = " ++ evCtor) : map ("  | " ++) evsCtors
-          deriv = "  deriving (Show, Ord, Eq)"
+          deriv = "  deriving (Show, Ord, Eq, Enum)"
       in intercalate "\n" ((ty:ctors) ++ [deriv])
     enumInst = unindent [i|
       instance CautEnumeration #{tCtor} where
@@ -323,8 +323,14 @@ recordTempl tn fs = intercalate "\n" parts
       [ [i|instance Serializable CautResult #{tCtor} where|]
       , [i|  serialize r = withTrace (TRecord $ cautName r) $ do|]
       ] ++ (map genFldSer fs) ++
-      [ [i|  deserialize = genRecordDeserialize (undefined :: #{tCtor}) #{tCtor}|]
-      ]
+      [ [i|  deserialize = withTrace (TRecord $ cautName (undefined :: #{tCtor})) $|]
+      , [i|    return #{tCtor}|]
+      ] ++ (map genFldDeser fs)
+
+    genFldDeser :: Spec.Field -> String
+    genFldDeser f =
+      let n = Spec.fieldName f
+      in [i|     `ap` genFieldDeserialize (TRecordField "#{unpackIdent n}")|]
 
     genFldSer :: Spec.Field -> String
     genFldSer f =
@@ -353,7 +359,7 @@ unionTempl tn t allfs@(f:fs) = intercalate "\n" parts
       in intercalate "\n" ((ty:ctors) ++ [deriv])
     unionInst = unindent [i|
       instance CautUnion #{tCtor} where
-        unionTagWidth = #{tagToTagWidth t}|]
+        unionTagWidth = const #{tagToTagWidth t}|]
     seriInst =
       let inst =
             [ [i|instance Serializable CautResult #{tCtor} where|]
@@ -398,12 +404,12 @@ combinationTempl tn allfs@(f:fs) t = intercalate "\n" parts
           fCtor = combFieldToHsType f
           fsCtors = map combFieldToHsType fs
           ctors = ("  { " ++ fCtor) : map ("  , " ++ ) fsCtors
-          deriv = "  } deriving (Show, Ord, Eq, Enum)"
+          deriv = "  } deriving (Show, Ord, Eq)"
       in intercalate "\n" ((ty:ctors) ++ [deriv])
     combInst = unindent [i|
       instance CautCombination #{tCtor} where
-        combinationTagWidth = #{tagToTagWidth t}
-        combinationMaxIndex = #{maximumIndex}|]
+        combinationTagWidth = const #{tagToTagWidth t}
+        combinationMaxIndex = const #{maximumIndex}|]
 
     seriInst =
       let ef:efs = map genPresent allfs
@@ -420,15 +426,15 @@ combinationTempl tn allfs@(f:fs) t = intercalate "\n" parts
             , [i|        return #{tCtor}|]
             ] ++ dserLines
 
-          serLines = let indent = "                  "
+          serLines = let indent = "                    "
                      in map (\x -> indent ++ ", " ++ x) efs ++ [indent ++ "]"]
           dserLines = let indent = "          "
                       in map (\x -> indent ++ "`ap` " ++ x) dfs
 
           genPresent fld = let n' = identToHsName (Spec.fieldName fld)
-                           in [i|fieldPresent $ #{tVar}#{n'}|]
+                           in [i|fieldPresent $ #{tVar}#{n'} r|]
           genDeser (Spec.DataField n ix _)  = [i|genCombFieldDeserialize "#{unpackIdent n}" (flags `isFlagSet` #{ix})|]
-          genDeser (Spec.EmptyField _ ix)   = [i|return $ if flags `isFlagSet` #{ix} then Just () else Nothing|]
+          genDeser (Spec.EmptyField _ ix)   = [i|return (if flags `isFlagSet` #{ix} then Just () else Nothing)|]
 
       in intercalate "\n" inst
 
