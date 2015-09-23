@@ -60,7 +60,7 @@ data ACombination
   = ACombination { aCombinationFieldBool :: Maybe Bool
                  , aCombinationFieldU8 :: Maybe Word8
                  } deriving (Show, Ord, Eq)
-instance CautTranscodable ACombination where; cautName _ = "a_combination"; cautSize = const (1,3)
+instance CautTranscodable ACombination where; cautName = const "a_combination"; cautSize = const (1,3)
 instance CautCombination ACombination where; combinationTagWidth _ = 1; combinationMaxIndex _ = 1
 instance Serializable CautResult ACombination where
   serialize r = traceComb $ do
@@ -85,7 +85,7 @@ data AUnion = AUnionCBool Bool
             | AUnionU8 Word8
             | AUnionEmpty
   deriving (Show, Eq)
-instance CautTranscodable AUnion where; cautName _ = "a_union"; cautSize = const (1,2)
+instance CautTranscodable AUnion where; cautName = const "a_union"; cautSize = const (1,2)
 instance CautUnion AUnion where; unionTagWidth _ = 1
 instance Serializable CautResult AUnion where
   serialize r = traceUnion $
