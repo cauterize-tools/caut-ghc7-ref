@@ -319,10 +319,18 @@ recordTempl tn fs = intercalate "\n" parts
       in intercalate "\n" ((ty:ctors) ++ [deriv])
     recInst = unindent [i|
       instance CautRecord #{tCtor} where|]
-    seriInst = unindent [i|
-      instance Serializable CautResult #{tCtor} where
-        serialize t@(#{tCtor} a) = genRecordSerialize a t
-        deserialize = genRecordDeserialize (undefined :: #{tCtor}) #{tCtor}|]
+    seriInst = intercalate "\n" $
+      [ [i|instance Serializable CautResult #{tCtor} where|]
+      , [i|  serialize r = withTrace (TRecord $ cautName r) $ do|]
+      ] ++ (map genFldSer fs) ++
+      [ [i|  deserialize = genRecordDeserialize (undefined :: #{tCtor}) #{tCtor}|]
+      ]
+
+    genFldSer :: Spec.Field -> String
+    genFldSer f =
+      let n = Spec.fieldName f
+      in [i|    genFieldSerialize (TRecordField "#{unpackIdent n}") (#{tVar}#{identToHsName n} r)|]
+
     recordFieldToHsType (Spec.DataField n _ r) = Just (tVar ++ identToHsName n ++ " :: " ++ identToHsName r)
     recordFieldToHsType (Spec.EmptyField _ _) = Nothing -- nothing is generated for empty record fields
 
