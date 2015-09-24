@@ -139,10 +139,18 @@ stackYamlTempl = unindent [i|
   flags: {}
   packages:
   - '.'
-  - location: ../../cauterize
-  - location: ../../../s-cargot
-  - location: ../../crucible
-  - location: ../
+  - location:
+      git: https://github.com/cauterize-tools/cauterize.git
+      commit: 18d603078d327bc08e790d7c4ae3e721760058b5
+  - location:
+      git: https://github.com/aisamanra/s-cargot.git
+      commit: 1628a7c2913fc5e72ab6ea9a813762bf86d47d49
+  - location:
+      git: https://github.com/cauterize-tools/crucible.git
+      commit: ed603e7f8eb68b9ffcf8a402b51116b1465ca7ec
+  - location:
+      git: https://github.com/cauterize-tools/caut-ghc7-ref.git
+      commit: 8f36c0c241494829948dec752a2ecc6703c0d1e0
   extra-deps:
     - hastache-0.6.0
     - cereal-plus-0.4.0
