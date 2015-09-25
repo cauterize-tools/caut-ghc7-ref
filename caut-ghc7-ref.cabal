@@ -22,7 +22,6 @@ executable caut-ghc7-ref
                        optparse-applicative,
                        caut-ghc7-ref,
                        cauterize <=0.1.0.0,
-                       hastache == 0.6.0,
                        bytestring,
                        directory,
                        text,
