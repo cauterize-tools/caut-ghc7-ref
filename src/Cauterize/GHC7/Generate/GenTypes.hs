@@ -34,8 +34,20 @@ genTempl libname spec = unlines parts
       , "import Cauterize.GHC7.Support.Result"
       , ""
       ]
+    specInfo =
+      let sz = Spec.specSize spec
+          szMin = CT.sizeMin sz
+          szMax = CT.sizeMax sz
+          hashToStr h = show (H.hashToBytes h)
+      in [ [i|specName :: T.Text|]
+         , [i|specName = #{Spec.specName spec}|] -- the text instance adds the quotes
+         , [i|specSize :: (MinSize, MaxSize)|]
+         , [i|specSize = (#{szMin},#{szMax})|]
+         , [i|specFingerprint :: Hash|]
+         , [i|specFingerprint = #{hashToStr (Spec.specFingerprint spec)}|]
+         ]
     types = map libTypeTempl (Spec.specTypes spec)
-    parts = libmod ++ imports ++ types
+    parts = libmod ++ imports ++ specInfo ++ types
 
 libTypeTempl :: Spec.Type -> String
 libTypeTempl t =  unlines [declinst, transinst, typeinst]
