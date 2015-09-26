@@ -238,7 +238,7 @@ unionTempl tn t allfs@(f:fs) = intercalate "\n" parts
 
           sers = map serBranch allfs
           serBranch (Spec.DataField n ix _)    = [i|                    #{tCtor}#{identToHsName n} v -> genUnionFieldSerialize r #{ix} "#{unpackIdent n}" v|]
-          serBranch (Spec.EmptyField n ix)     = [i|                    #{tCtor}#{identToHsName n} v -> genUnionFieldSerializeEmpty r #{ix}|]
+          serBranch (Spec.EmptyField n ix)     = [i|                    #{tCtor}#{identToHsName n} -> genUnionFieldSerializeEmpty r #{ix}|]
 
           dsers = map deserBranch allfs ++        ["           v -> failUnionTag v"]
           deserBranch (Spec.DataField n ix _)  = [i|           #{ix} -> genUnionFieldDeserialize "#{unpackIdent n}" #{tCtor}#{identToHsName n}|]
