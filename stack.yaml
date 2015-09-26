@@ -9,7 +9,7 @@ packages:
     commit: 1628a7c2913fc5e72ab6ea9a813762bf86d47d49
 - location:
     git: https://github.com/cauterize-tools/crucible.git
-    commit: ed603e7f8eb68b9ffcf8a402b51116b1465ca7ec
+    commit: 7f8147e0fbfe210df9e6c83f4c0d48c3de4ed9f7
 extra-deps:
   - cereal-plus-0.4.0
 resolver: lts-2.21
