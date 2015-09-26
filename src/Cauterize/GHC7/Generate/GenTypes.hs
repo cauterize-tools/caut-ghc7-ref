@@ -39,12 +39,13 @@ genTempl libname spec = unlines parts
           szMin = CT.sizeMin sz
           szMax = CT.sizeMax sz
           hashToStr h = show (H.hashToBytes h)
-      in [ [i|specName :: T.Text|]
-         , [i|specName = #{Spec.specName spec}|] -- the text instance adds the quotes
+      in [ [i|specName :: String|]
+         , [i|specName = "#{Spec.specName spec}"|]
          , [i|specSize :: (MinSize, MaxSize)|]
          , [i|specSize = (#{szMin},#{szMax})|]
          , [i|specFingerprint :: Hash|]
          , [i|specFingerprint = #{hashToStr (Spec.specFingerprint spec)}|]
+         , ""
          ]
     types = map libTypeTempl (Spec.specTypes spec)
     parts = libmod ++ imports ++ specInfo ++ types
