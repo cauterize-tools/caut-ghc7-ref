@@ -14,7 +14,7 @@ generateOutput :: Spec.Specification -> FilePath -> IO ()
 generateOutput spec out = do
   genDir <- createPath [out]
   let genPath = genDir `combine` (specName ++ ".cabal")
-  let genData = genTempl hsName specName
+  let genData = genTempl specName hsName
   writeFile genPath genData
   where
     specName = T.unpack (Spec.specName spec)
