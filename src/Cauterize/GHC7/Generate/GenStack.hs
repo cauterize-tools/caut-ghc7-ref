@@ -32,7 +32,7 @@ stackYamlTempl = unindent [i|
       commit: 7f8147e0fbfe210df9e6c83f4c0d48c3de4ed9f7
   - location:
       git: https://github.com/cauterize-tools/caut-ghc7-ref.git
-      commit: eb343ec11f088970f69fbc90cf57596ad8dc59b0
+      commit: 36f28786cd97cf9e810649d75270b2ac0cb8d1a5
   extra-deps:
     - cereal-plus-0.4.0
   resolver: lts-2.21|]
