@@ -27,6 +27,7 @@ genTempl libname spec = unlines parts
   where
     libmod =
       [ "{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings #-}"
+      , "{- WARNING: This is generated code. DO NOT EDIT. -}"
       , [i|module Cauterize.Generated.#{libname}.Types where\n|]
       ]
     imports =
