@@ -26,13 +26,14 @@ genTempl :: String -> Spec.Specification -> String
 genTempl libname spec = unlines parts
   where
     libmod =
-      [ "{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings #-}"
+      [ "{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings, DeriveDataTypeable #-}"
       , "{- WARNING: This is generated code. DO NOT EDIT. -}"
       , [i|module Cauterize.Generated.#{libname}.Types where\n|]
       ]
     imports =
       [ "import Cauterize.GHC7.Support.Prototypes"
       , "import Cauterize.GHC7.Support.Result"
+      , "import Data.Data"
       , ""
       ]
     specInfo =
@@ -93,7 +94,7 @@ typeTempl ctor hash = unindent [i|
 
 synonymTempl :: CT.Identifier -> CT.Identifier -> String
 synonymTempl tn r = unindent [i|
-  data #{tCtor} = #{tCtor} #{rCtor} deriving (Show, Eq, Ord)
+  data #{tCtor} = #{tCtor} #{rCtor} deriving (Data, Typeable, Show, Eq, Ord)
   instance CautSynonym #{tCtor} where
   instance Serializable CautResult #{tCtor} where
     serialize t@(#{tCtor} a) = genSynonymSerialize a t
@@ -104,7 +105,7 @@ synonymTempl tn r = unindent [i|
 
 rangeTempl :: CT.Identifier -> CT.Offset -> CT.Length -> CT.Tag -> CT.Prim -> String
 rangeTempl tn ro rl rt rp = unindent [i|
-  data #{tCtor} = #{tCtor} #{rpCtor} deriving (Show, Eq, Ord)
+  data #{tCtor} = #{tCtor} #{rpCtor} deriving (Data, Typeable, Show, Eq, Ord)
   instance CautRange #{tCtor} where
     rangeTagWidth = const #{rtWidth}
     rangeOffset = const #{fmtNegative ro}
@@ -121,7 +122,7 @@ rangeTempl tn ro rl rt rp = unindent [i|
 
 arrayTempl :: CT.Identifier -> CT.Identifier -> CT.Length -> String
 arrayTempl tn r l = unindent [i|
-  data #{tCtor} = #{tCtor} (Vector #{rCtor}) deriving (Show, Eq, Ord)
+  data #{tCtor} = #{tCtor} (Vector #{rCtor}) deriving (Data, Typeable, Show, Eq, Ord)
   instance CautArray #{tCtor} where
     arrayLength = const #{l}
   instance Serializable CautResult #{tCtor} where
@@ -133,7 +134,7 @@ arrayTempl tn r l = unindent [i|
 
 vectorTempl :: CT.Identifier -> CT.Identifier -> CT.Length -> CT.Tag -> String
 vectorTempl tn r l t = unindent [i|
-  data #{tCtor} = #{tCtor} (Vector #{rCtor}) deriving (Show, Eq, Ord)
+  data #{tCtor} = #{tCtor} (Vector #{rCtor}) deriving (Data, Typeable, Show, Eq, Ord)
   instance CautVector #{tCtor} where
     vectorMaxLength = const #{l}
     vectorTagWidth = const #{tWidth}
@@ -165,7 +166,7 @@ enumerationTempl tn allevs@(ev:evs) et = intercalate "\n" parts
           evCtor = enumValToHsName ev
           evsCtors = map enumValToHsName evs
           ctors = ("  = " ++ evCtor) : map ("  | " ++) evsCtors
-          deriv = "  deriving (Show, Ord, Eq, Enum)"
+          deriv = "  deriving (Data, Typeable, Show, Ord, Eq, Enum)"
       in intercalate "\n" ((ty:ctors) ++ [deriv])
     enumInst = unindent [i|
       instance CautEnumeration #{tCtor} where
@@ -192,7 +193,7 @@ recordTempl tn fs = intercalate "\n" parts
     dataType =
       let ty = "data " ++ tCtor ++ " = " ++ tCtor
           ctors = ("  { " ++ fctor) : map ("  , " ++ ) fctors
-          deriv = "  } deriving (Show, Ord, Eq)"
+          deriv = "  } deriving (Data, Typeable, Show, Ord, Eq)"
       in intercalate "\n" ((ty:ctors) ++ [deriv])
     recInst = unindent [i|
       instance CautRecord #{tCtor} where|]
@@ -232,7 +233,7 @@ unionTempl tn t allfs@(f:fs) = intercalate "\n" parts
           fCtor = unionFieldToHsType f
           fsCtors = map unionFieldToHsType fs
           ctors = ("  = " ++ fCtor) : map ("  | " ++) fsCtors
-          deriv = "  deriving (Show, Ord, Eq)"
+          deriv = "  deriving (Data, Typeable, Show, Ord, Eq)"
       in intercalate "\n" ((ty:ctors) ++ [deriv])
     unionInst = unindent [i|
       instance CautUnion #{tCtor} where
@@ -281,7 +282,7 @@ combinationTempl tn allfs@(f:fs) t = intercalate "\n" parts
           fCtor = combFieldToHsType f
           fsCtors = map combFieldToHsType fs
           ctors = ("  { " ++ fCtor) : map ("  , " ++ ) fsCtors
-          deriv = "  } deriving (Show, Ord, Eq)"
+          deriv = "  } deriving (Data, Typeable, Show, Ord, Eq)"
       in intercalate "\n" ((ty:ctors) ++ [deriv])
     combInst = unindent [i|
       instance CautCombination #{tCtor} where
