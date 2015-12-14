@@ -3,11 +3,11 @@ packages:
 - '.'
 - location:
     git: https://github.com/cauterize-tools/cauterize.git
-    commit: 348b07492a87218a428b6753e05f2f1ded0e0106
+    commit: bcd3ffefc677a02c0bbf95e7e806d1bf0b33d6dd
 - location:
     git: https://github.com/cauterize-tools/crucible.git
-    commit: 7f8147e0fbfe210df9e6c83f4c0d48c3de4ed9f7
+    commit: b2125cf19e64411c08b10a26bd8dffa17e11ec0e
 extra-deps:
-  - cereal-plus-0.4.0
+  - cereal-plus-0.4.1
   - s-cargot-0.1.0.0
-resolver: lts-2.21
+resolver: lts-3.16

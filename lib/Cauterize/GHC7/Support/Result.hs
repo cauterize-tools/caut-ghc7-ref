@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, CPP #-}
 module Cauterize.GHC7.Support.Result
   ( Trace(..)
   , CautResult(..)
@@ -8,7 +8,10 @@ module Cauterize.GHC7.Support.Result
   , withTrace
   ) where
 
+#if __GLASGOW_HASKELL__ < 710
 import Control.Applicative
+#endif
+
 import Control.Monad.Morph
 import Control.Monad.Trans.Reader
 import qualified Data.Text as T
