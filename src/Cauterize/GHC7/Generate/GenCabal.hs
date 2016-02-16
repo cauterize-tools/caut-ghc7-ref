@@ -22,7 +22,7 @@ generateOutput spec out = do
 
 genTempl :: String -> String -> String
 genTempl name libname = unindent [i|
-  name:                #{name}
+  name:                #{hyphenName}
   version:             0.0.0.1
   build-type:          Simple
   cabal-version:       >= 1.10
@@ -46,3 +46,5 @@ genTempl name libname = unindent [i|
                          text
 
   |]
+  where
+    hyphenName = map (\c -> if '_' == c then '-' else c) name
