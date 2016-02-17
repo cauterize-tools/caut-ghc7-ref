@@ -3,18 +3,21 @@ module Cauterize.GHC7.Generate.GenStack
        ( generateOutput
        ) where
 
+import Cauterize.GHC7.Options
 import Cauterize.GHC7.Generate.Utils
 import qualified Cauterize.Specification as Spec
 import System.FilePath.Posix
 import Data.String.Interpolate.Util
 import Data.String.Interpolate.IsString
 
-generateOutput :: Spec.Specification -> FilePath -> IO ()
-generateOutput _ out = do
+generateOutput :: Spec.Specification -> CautGHC7Opts -> IO ()
+generateOutput _ opts = do
     stackDir <- createPath [out]
     let stackPath = stackDir `combine` "stack.yaml"
     let stackData = stackYamlTempl
     writeFile stackPath stackData
+  where
+    out = outputDirectory opts
 
 stackYamlTempl :: String
 stackYamlTempl = unindent [i|

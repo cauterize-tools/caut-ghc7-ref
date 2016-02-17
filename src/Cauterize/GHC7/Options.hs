@@ -5,4 +5,5 @@ module Cauterize.GHC7.Options
 data CautGHC7Opts = CautGHC7Opts
   { specFile :: FilePath
   , outputDirectory :: FilePath
+  , modulePath :: Maybe String
   } deriving (Show)

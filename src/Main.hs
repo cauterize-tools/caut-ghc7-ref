@@ -25,6 +25,12 @@ optParser = CautGHC7Opts
    <> metavar "OUTPUT_PATH"
    <> help "Directory to save output files"
     )
+  <*> option (Just <$> str)
+    ( long "module-path"
+   <> metavar "Module.Path"
+   <> help "override default haskell module path"
+   <> value Nothing
+    )
 
 options :: ParserInfo CautGHC7Opts
 options = info (optParser <**> helper)

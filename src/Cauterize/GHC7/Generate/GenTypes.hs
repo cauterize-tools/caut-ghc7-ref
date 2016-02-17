@@ -3,6 +3,7 @@ module Cauterize.GHC7.Generate.GenTypes
        ( generateOutput
        ) where
 
+import Cauterize.GHC7.Options
 import Cauterize.GHC7.Generate.Utils
 import Data.String.Interpolate.IsString
 import Data.String.Interpolate.Util
@@ -13,14 +14,15 @@ import qualified Cauterize.Hash as H
 import Data.List (intercalate)
 import Data.Maybe (catMaybes)
 
-generateOutput :: Spec.Specification -> FilePath -> IO ()
-generateOutput spec out = do
+generateOutput :: Spec.Specification -> CautGHC7Opts -> IO ()
+generateOutput spec opts = do
   genDir <- createPath [out, "src", "Cauterize", "Generated", hsName]
   let genPath = genDir `combine` "Types.hs"
   let genData = genTempl hsName spec
   writeFile genPath genData
   where
     hsName = nameToHsName (Spec.specName spec)
+    out = outputDirectory opts
 
 genTempl :: String -> Spec.Specification -> String
 genTempl libname spec = unlines parts
