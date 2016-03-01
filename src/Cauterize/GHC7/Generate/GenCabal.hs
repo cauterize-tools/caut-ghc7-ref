@@ -4,24 +4,30 @@ module Cauterize.GHC7.Generate.GenCabal
        ) where
 
 import Cauterize.GHC7.Generate.Utils
+import Cauterize.GHC7.Options
 import Data.String.Interpolate.IsString
 import Data.String.Interpolate.Util
 import System.FilePath.Posix
 import qualified Cauterize.Specification as Spec
 import qualified Data.Text as T
+import Data.Maybe (fromMaybe)
+import Data.List (intercalate)
 
-generateOutput :: Spec.Specification -> FilePath -> IO ()
-generateOutput spec out = do
+generateOutput :: Spec.Specification -> CautGHC7Opts -> IO ()
+generateOutput spec opts = do
   genDir <- createPath [out]
   let genPath = genDir `combine` (specName ++ ".cabal")
   let genData = genTempl specName hsName
   writeFile genPath genData
   where
     specName = T.unpack (Spec.specName spec)
-    hsName = nameToHsName (Spec.specName spec)
+    hsName = fromMaybe
+      (intercalate "." ["Cauterize", "Generated", nameToHsName (Spec.specName spec)])
+      (modulePath opts)
+    out = outputDirectory opts
 
 genTempl :: String -> String -> String
-genTempl name libname = unindent [i|
+genTempl name modname = unindent [i|
   name:                #{name}
   version:             0.0.0.1
   build-type:          Simple
@@ -38,7 +44,7 @@ genTempl name libname = unindent [i|
   library
     hs-source-dirs:      src
     default-language:    Haskell2010
-    exposed-modules:     Cauterize.Generated.#{libname}.Types
+    exposed-modules:     #{modname}.Types
     build-depends:       base < 5,
                          caut-ghc7-ref,
                          cereal,

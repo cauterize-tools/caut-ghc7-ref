@@ -3,6 +3,7 @@ module Cauterize.GHC7.Generate.GenTypes
        ( generateOutput
        ) where
 
+import Cauterize.GHC7.Options
 import Cauterize.GHC7.Generate.Utils
 import Data.String.Interpolate.IsString
 import Data.String.Interpolate.Util
@@ -11,24 +12,27 @@ import qualified Cauterize.Specification as Spec
 import qualified Cauterize.CommonTypes as CT
 import qualified Cauterize.Hash as H
 import Data.List (intercalate)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 
-generateOutput :: Spec.Specification -> FilePath -> IO ()
-generateOutput spec out = do
-  genDir <- createPath [out, "src", "Cauterize", "Generated", hsName]
+generateOutput :: Spec.Specification -> CautGHC7Opts -> IO ()
+generateOutput spec opts = do
+  genDir <- createPath ([out, "src"] ++ hsName)
   let genPath = genDir `combine` "Types.hs"
   let genData = genTempl hsName spec
   writeFile genPath genData
   where
-    hsName = nameToHsName (Spec.specName spec)
+    hsName = fromMaybe
+      ["Cauterize", "Generated", nameToHsName (Spec.specName spec)]
+      (modulePathAsList opts)
+    out = outputDirectory opts
 
-genTempl :: String -> Spec.Specification -> String
-genTempl libname spec = unlines parts
+genTempl :: [String] -> Spec.Specification -> String
+genTempl libpath spec = unlines parts
   where
     libmod =
       [ "{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings, DeriveDataTypeable #-}"
       , "{- WARNING: This is generated code. DO NOT EDIT. -}"
-      , [i|module Cauterize.Generated.#{libname}.Types where\n|]
+      , [i|module #{libname}.Types where\n|]
       ]
     imports =
       [ "import Cauterize.GHC7.Support.Prototypes"
@@ -51,6 +55,7 @@ genTempl libname spec = unlines parts
          ]
     types = map libTypeTempl (Spec.specTypes spec)
     parts = libmod ++ imports ++ specInfo ++ types
+    libname = intercalate "." libpath
 
 libTypeTempl :: Spec.Type -> String
 libTypeTempl t =  unlines [declinst, transinst, typeinst]

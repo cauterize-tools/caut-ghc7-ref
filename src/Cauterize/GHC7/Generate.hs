@@ -1,4 +1,6 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE QuasiQuotes #-}
+
 module Cauterize.GHC7.Generate
        ( caut2hs
        ) where
@@ -14,16 +16,16 @@ import qualified Cauterize.GHC7.Generate.GenStack as GenStack
 import qualified Cauterize.GHC7.Generate.GenCrucibleClient as GenCrucibleClient
 
 caut2hs :: CautGHC7Opts -> IO ()
-caut2hs (CautGHC7Opts { specFile = specPath, outputDirectory = outPath }) = createGuard outPath $ do
-  spec <- Spec.parseSpecificationFromFile specPath
+caut2hs (opts@CautGHC7Opts{..}) = createGuard outputDirectory $ do
+  spec <- Spec.parseSpecificationFromFile specFile
 
   case spec of
     Left es -> error $ show es
-    Right s' -> generateOutput s' outPath
+    Right s' -> generateOutput s' opts
 
-generateOutput :: Spec.Specification -> FilePath -> IO ()
-generateOutput spec out = do
-  GenStack.generateOutput spec out
-  GenCabal.generateOutput spec out
-  GenCrucibleClient.generateOutput spec out
-  GenTypes.generateOutput spec out
+generateOutput :: Spec.Specification -> CautGHC7Opts -> IO ()
+generateOutput spec opts = do
+  GenStack.generateOutput spec opts
+  GenCabal.generateOutput spec opts
+  GenCrucibleClient.generateOutput spec opts
+  GenTypes.generateOutput spec opts
