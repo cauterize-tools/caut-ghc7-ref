@@ -26,26 +26,24 @@ optParser :: Parser CautGHC7Opts
 optParser = CautGHC7Opts
   <$> argument str
     ( metavar "SPEC"
-   <> help "Cauterize specification"
+   `mappend` help "Cauterize specification"
     )
   <*> argument str
     ( metavar "OUTDIR"
-   <> help "Output directory"
+   `mappend` help "Output directory"
     )
   <*> option (Just <$> str)
     ( long "module-path"
-   <> metavar "Module.Path"
-   <> help "override default haskell module path"
-   <> value Nothing
+   `mappend` metavar "Module.Path"
+   `mappend` help "override default haskell module path"
+   `mappend` value Nothing
     )
 
 options :: ParserInfo (Maybe CautGHC7Opts)
 options = info (helper <*> o)
    ( fullDesc
-  <> progDesc "Translate a Cauterize specification into a Haskell implementation"
+  `mappend` progDesc "Translate a Cauterize specification into a Haskell implementation"
    )
   where
-  o = flag' Nothing (long "version" <> hidden)
+  o = flag' Nothing (long "version" `mappend` hidden)
    <|> (Just <$> optParser)
-
-
